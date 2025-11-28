@@ -289,6 +289,21 @@ export default function UploadPage() {
       setParcelId(""); // รีเซ็ต input
     }
   };
+  // ฟังก์ชันดาวน์โหลดไฟล์ CSV ตัวอย่าง
+  const downloadCsvExample = () => {
+    const csvContent = `full_name,phone,address
+สมชาย ใจดี,0812345678,"123 หมู่ 1 ต.นาโบสถ์ อ.วังเจ้า จ.ตาก"
+สมศรี สุขใจ,0898765432,"456 หมู่ 5 ต.แม่กาษา อ.เมืองตาก จ.ตาก"`;
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", "example.csv");
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
   return (
     <>
       <div className="min-h-screen bg-gray-50 pb-20">
@@ -339,7 +354,7 @@ export default function UploadPage() {
               สแกน QR
             </button>
           </div>
-          <div className="bg-white rounded-2xl shadow-lg p-5">
+          <div className="bg-white rounded-2xl shadow-lg p-5 text-gray-800">
             {/* ค้นหาจากคลัง */}
             {activeTab === "search" && (
               <div>
@@ -520,7 +535,7 @@ export default function UploadPage() {
         {/* Modal ตัวอย่าง CSV */}
         {showCsvExample && (
           <div
-            className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
+            className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 text-gray-800"
             onClick={() => setShowCsvExample(false)}
           >
             <div
@@ -544,6 +559,13 @@ export default function UploadPage() {
               <p className="text-xs text-gray-500 mt-3">
                 ใช้ " " ล้อมที่อยู่ที่มี comma
               </p>
+              <button
+                onClick={downloadCsvExample}
+                className="w-full mt-3 bg-blue-600 text-white py-2 rounded-lg text-sm hover:bg-blue-700 flex items-center justify-center gap-2"
+              >
+                <FileSpreadsheet className="w-4 h-4" />
+                โหลดไฟล์ CSV ตัวอย่าง
+              </button>
             </div>
           </div>
         )}
