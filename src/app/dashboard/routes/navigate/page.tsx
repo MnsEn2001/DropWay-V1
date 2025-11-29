@@ -10,6 +10,7 @@ import {
   Trash2,
   Save,
   Route as MapIcon,
+  Edit3,
 } from "lucide-react";
 
 interface House {
@@ -21,6 +22,8 @@ interface House {
   address: string;
   lat?: number;
   lng?: number;
+  quantity?: number; // จำนวนชิ้นที่วางแผน
+  actual_quantity?: number; // จำนวนชิ้นที่ส่งจริง (สำหรับ delivered)
   delivered: boolean;
   delivered_at?: string;
   order_index: number;
@@ -88,6 +91,14 @@ function vincentyDistance(
   return (b * A * (σ - Δσ)) / 1000;
 }
 
+function formatThaiShortDate(original_date: string): string {
+  const date = new Date(original_date);
+  const day = date.getDate().toString().padStart(2, "0");
+  const month = (date.getMonth() + 1).toString().padStart(2, "0");
+  const year = (date.getFullYear() + 543).toString();
+  return `${day}/${month}/${year}`;
+}
+
 export default function NavigatePage() {
   const [houses, setHouses] = useState<House[]>([]);
   const [pendingDates, setPendingDates] = useState<
@@ -102,25 +113,29 @@ export default function NavigatePage() {
   const [activeTab, setActiveTab] = useState<"undelivered" | "delivered">(
     "undelivered",
   );
-
   // Modals
   const [showManualModal, setShowManualModal] = useState(false);
   const [showPendingModal, setShowPendingModal] = useState(false);
-  const [showDeliveryModal, setShowDeliveryModal] = useState(false);
+  const [showMarkDeliveredModal, setShowMarkDeliveredModal] = useState(false); // เปลี่ยนชื่อเพื่อชัดเจน
+  const [showEditDeliveredModal, setShowEditDeliveredModal] = useState(false); // ใหม่: สำหรับแก้ไข
   const [manualCoordInput, setManualCoordInput] = useState("");
   const [detectedLat, setDetectedLat] = useState<number | null>(null);
   const [detectedLng, setDetectedLng] = useState<number | null>(null);
-
   // สำหรับกด "ส่งแล้ว"
   const [tempHouseId, setTempHouseId] = useState<string | null>(null);
   const [tempIncome, setTempIncome] = useState<string>("");
+  const [tempActualQuantity, setTempActualQuantity] = useState<string>(""); // เปลี่ยนเป็น string เพื่อให้ลบได้
   const [tempNotes, setTempNotes] = useState("");
-
+  // ใหม่: สำหรับแก้ไข delivered
+  const [tempEditHouseId, setTempEditHouseId] = useState<string | null>(null);
+  const [tempEditIncome, setTempEditIncome] = useState<string>("");
+  const [tempEditActualQuantity, setTempEditActualQuantity] =
+    useState<string>(""); // เปลี่ยนเป็น string
+  const [tempEditNotes, setTempEditNotes] = useState("");
   // Flag ป้องกัน loop
   const shouldResortRef = useRef(false);
   const isSortingRef = useRef(false);
   const watchIdRef = useRef<number | null>(null);
-
   // Toast
   const addToast = (
     message: string,
@@ -142,7 +157,6 @@ export default function NavigatePage() {
     container.appendChild(toast);
     setTimeout(() => toast.remove(), 3500);
   };
-
   const getCurrentPosition = () =>
     new Promise<{ lat: number; lng: number }>((resolve, reject) => {
       if (!navigator.geolocation)
@@ -154,7 +168,6 @@ export default function NavigatePage() {
         { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 },
       );
     });
-
   const detectLocation = async () => {
     try {
       const pos = await getCurrentPosition();
@@ -166,7 +179,6 @@ export default function NavigatePage() {
       addToast("ไม่สามารถหาตำแหน่งได้", "error");
     }
   };
-
   const setManualPosition = () => {
     if (!detectedLat || !detectedLng)
       return addToast("พิกัดไม่ถูกต้อง", "error");
@@ -175,7 +187,6 @@ export default function NavigatePage() {
     addToast("ตั้งค่าตำแหน่งแล้ว → กำลังเรียงใหม่...", "success");
     shouldResortRef.current = true;
   };
-
   // Cache ระยะทาง
   const distanceCache = useMemo(() => new Map<string, number>(), []);
   const calculateDistance = useCallback(
@@ -188,7 +199,6 @@ export default function NavigatePage() {
     },
     [distanceCache],
   );
-
   // ล้างงานค้างทั้งหมด
   const clearAllPending = async () => {
     if (!confirm("ล้างงานค้างทั้งหมดจริงหรือ? (ไม่สามารถกู้คืนได้)")) return;
@@ -196,7 +206,6 @@ export default function NavigatePage() {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) return addToast("กรุณาเข้าสู่ระบบก่อน", "error");
-
     try {
       const { error } = await supabase
         .from("pending_houses")
@@ -209,14 +218,40 @@ export default function NavigatePage() {
       addToast(`ล้างไม่สำเร็จ: ${err.message || "Unknown"}`, "error");
     }
   };
-
-  // Refresh data
+  // ล้างงานค้างเฉพาะวันที่
+  const clearPendingForDate = async (original_date: string) => {
+    if (
+      !confirm(
+        `ล้างงานค้างของวันที่ ${formatThaiShortDate(original_date)} จริงหรือ? (ไม่สามารถกู้คืนได้)`,
+      )
+    )
+      return;
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return addToast("กรุณาเข้าสู่ระบบก่อน", "error");
+    try {
+      const { error } = await supabase
+        .from("pending_houses")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("original_date", original_date);
+      if (error) throw error;
+      await refreshData();
+      addToast(
+        `ล้างงานค้างของวันที่ ${formatThaiShortDate(original_date)} เรียบร้อย!`,
+        "success",
+      );
+    } catch (err: any) {
+      addToast(`ล้างไม่สำเร็จ: ${err.message || "Unknown"}`, "error");
+    }
+  };
+  // Refresh data + ปรับ load pending ให้ sum quantity
   const refreshData = useCallback(async () => {
     const {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) return;
-
     let mergedToday: any[] = [];
     try {
       const { data, error } = await supabase.rpc(
@@ -226,13 +261,16 @@ export default function NavigatePage() {
       mergedToday = data || [];
       if (mergedToday.length > 0)
         addToast("อัพเดทข้อมูลล่าสุดเรียบร้อย!", "success");
-
       setHouses(
         mergedToday.map((h: any) => ({
           ...h,
           id: h.id,
           lat: h.lat ? Number(h.lat) : undefined,
           lng: h.lng ? Number(h.lng) : undefined,
+          quantity: h.quantity || 1,
+          actual_quantity: h.actual_quantity
+            ? Number(h.actual_quantity)
+            : undefined, // ใหม่
           income: h.income ? Number(h.income) : undefined,
           order_index: Number(h.order_index),
         })),
@@ -254,6 +292,10 @@ export default function NavigatePage() {
               ...t,
               lat: t.lat ? Number(t.lat) : p?.lat ? Number(p.lat) : undefined,
               lng: t.lng ? Number(t.lng) : p?.lng ? Number(p.lng) : undefined,
+              quantity: t.quantity || 1,
+              actual_quantity: t.actual_quantity
+                ? Number(t.actual_quantity)
+                : undefined, // ใหม่
               income: t.income ? Number(t.income) : undefined,
               order_index: Number(t.order_index),
             };
@@ -262,43 +304,40 @@ export default function NavigatePage() {
         setHouses(fallbackMerged);
       } catch {}
     }
-
-    // Load pending
+    // Load pending + sum quantity per date
     try {
       const { data: pending } = await supabase
         .from("pending_houses")
-        .select("original_date")
+        .select("original_date, quantity")
         .eq("user_id", user.id);
       const map = new Map<string, number>();
       pending?.forEach((r: any) =>
-        map.set(r.original_date, (map.get(r.original_date) || 0) + 1),
+        map.set(
+          r.original_date,
+          (map.get(r.original_date) || 0) + (r.quantity || 1),
+        ),
       );
       const pendingList = Array.from(map.entries())
         .map(([d, c]) => ({ original_date: d, count: c }))
         .sort(
           (a, b) =>
-            new Date(b.original_date).getTime() -
-            new Date(a.original_date).getTime(),
+            new Date(a.original_date).getTime() -
+            new Date(b.original_date).getTime(),
         );
       setPendingDates(pendingList);
     } catch {}
-
     shouldResortRef.current = true;
   }, []);
-
   // เรียงใหม่
   const reSortHouses = useCallback(async () => {
     if (!currentPosition || houses.length === 0 || isSortingRef.current) return;
     const undelivered = houses.filter((h) => !h.delivered);
     if (undelivered.length === 0) return;
-
     setSorting(true);
     isSortingRef.current = true;
-
     const pos = currentPosition;
     const withCoords = undelivered.filter((h) => h.lat && h.lng);
     const withoutCoords = undelivered.filter((h) => !h.lat || !h.lng);
-
     const sortedWith = withCoords
       .map((h) => ({
         h,
@@ -306,15 +345,12 @@ export default function NavigatePage() {
       }))
       .sort((a, b) => a.dist - b.dist)
       .map(({ h }, i) => ({ ...h, order_index: i + 1 }));
-
     const sortedWithout = withoutCoords
       .sort((a, b) => a.order_index - b.order_index)
       .map((h, i) => ({ ...h, order_index: sortedWith.length + i + 1 }));
-
     const sortedUndelivered = [...sortedWith, ...sortedWithout];
     const deliveredHouses = houses.filter((h) => h.delivered);
     const sortedAll = [...sortedUndelivered, ...deliveredHouses];
-
     try {
       await Promise.all(
         sortedUndelivered.map((h) =>
@@ -332,7 +368,6 @@ export default function NavigatePage() {
       isSortingRef.current = false;
     }
   }, [currentPosition, houses, calculateDistance]);
-
   // เปิดเส้นทางทั้งหมด
   const openFullRouteOnMaps = useCallback(async () => {
     if (!currentPosition) return addToast("ยังไม่มีตำแหน่งปัจจุบัน", "error");
@@ -340,7 +375,6 @@ export default function NavigatePage() {
     const validHouses = houses.filter((h) => !h.delivered && h.lat && h.lng);
     if (validHouses.length === 0)
       return addToast("ไม่มีจุดหมายที่มีพิกัด", "error");
-
     const sorted = validHouses
       .map((h) => ({
         h,
@@ -353,7 +387,6 @@ export default function NavigatePage() {
       }))
       .sort((a, b) => a.dist - b.dist)
       .map(({ h }, i) => ({ ...h, order_index: i + 1 }));
-
     try {
       await Promise.all(
         sorted.map((h) =>
@@ -367,16 +400,17 @@ export default function NavigatePage() {
         prev.map((h) => sorted.find((s) => s.id === h.id) || h),
       );
     } catch {}
-
     const points = [
       `${currentPosition.lat},${currentPosition.lng}`,
       ...sorted.map((h) => `${h.lat},${h.lng}`),
     ];
     const url = `https://www.google.com/maps/dir/${points.map(encodeURIComponent).join("/")}`;
-    addToast(`เปิดเส้นทางแล้ว! ${sorted.length} จุด`, "success");
+    addToast(
+      `เปิดเส้นทางแล้ว! ${sorted.reduce((sum, h) => sum + (h.quantity || 1), 0)} ชิ้น`,
+      "success",
+    );
     window.open(url, "_blank");
   }, [currentPosition, houses, calculateDistance, refreshData]);
-
   const loadPendingAndResort = useCallback(
     async (original_date: string) => {
       try {
@@ -394,7 +428,6 @@ export default function NavigatePage() {
     },
     [refreshData],
   );
-
   const archiveTodayData = async () => {
     if (!confirm("เก็บข้อมูลวันนี้และล้างหน้างานทั้งหมดหรือไม่?")) return;
     try {
@@ -406,18 +439,22 @@ export default function NavigatePage() {
       addToast(`เกิดข้อผิดพลาด: ${err.message || "Unknown"}`, "error");
     }
   };
-
   const startMarkDelivered = (id: string) => {
     const house = houses.find((h) => h.id === id);
-    setTempIncome(house?.income?.toString() || "");
+    if (!house) return;
+    setTempIncome(house.income?.toString() || "");
+    setTempActualQuantity((house.quantity || 1).toString()); // default เป็น string ของ quantity ที่วางแผน
+    setTempNotes(house.delivery_notes || "");
     setTempHouseId(id);
-    setTempNotes("");
-    setShowDeliveryModal(true);
+    setShowMarkDeliveredModal(true);
   };
-
   const confirmMarkDelivered = async () => {
-    if (!tempHouseId || !tempIncome || isNaN(parseFloat(tempIncome))) {
-      return addToast("กรุณากรอกรายได้ให้ถูกต้อง", "error");
+    if (!tempHouseId) {
+      return addToast("เกิดข้อผิดพลาด: ไม่พบข้อมูล", "error");
+    }
+    const actualQty = parseInt(tempActualQuantity) || 0;
+    if (actualQty < 1) {
+      return addToast("จำนวนชิ้นที่ส่งต้องมากกว่า 0", "error");
     }
     const now = new Date().toISOString();
     try {
@@ -426,13 +463,13 @@ export default function NavigatePage() {
         .update({
           delivered: true,
           delivered_at: now,
-          income: parseFloat(tempIncome),
+          income: tempIncome ? parseFloat(tempIncome) : null, // optional
           delivery_notes: tempNotes || null,
+          actual_quantity: actualQty, // ใหม่
           updated_at: now,
         })
         .eq("id", tempHouseId);
       if (error) throw error;
-
       setHouses((prev) =>
         prev.map((h) =>
           h.id === tempHouseId
@@ -440,20 +477,74 @@ export default function NavigatePage() {
                 ...h,
                 delivered: true,
                 delivered_at: now,
-                income: parseFloat(tempIncome),
+                income: tempIncome ? parseFloat(tempIncome) : undefined,
                 delivery_notes: tempNotes || null,
+                actual_quantity: actualQty, // ใหม่
+                updated_at: now,
               }
             : h,
         ),
       );
-      setShowDeliveryModal(false);
+      setShowMarkDeliveredModal(false);
+      setActiveTab("delivered"); // ใหม่: ย้ายไป tab ส่งแล้ว
       addToast("ส่งแล้วและบันทึกสำเร็จ!", "success");
       shouldResortRef.current = true;
     } catch (err: any) {
       addToast(`เกิดข้อผิดพลาด: ${err.message || "Unknown"}`, "error");
     }
   };
-
+  // ใหม่: เริ่มแก้ไข delivered
+  const startEditDelivered = (id: string) => {
+    const house = houses.find((h) => h.id === id);
+    if (!house) return;
+    setTempEditIncome(house.income?.toString() || "");
+    setTempEditActualQuantity(
+      (house.actual_quantity || house.quantity || 1).toString(),
+    ); // default เป็น string ของปัจจุบัน
+    setTempEditNotes(house.delivery_notes || "");
+    setTempEditHouseId(id);
+    setShowEditDeliveredModal(true);
+  };
+  // ใหม่: ยืนยันแก้ไข
+  const confirmEditDelivered = async () => {
+    if (!tempEditHouseId) {
+      return addToast("เกิดข้อผิดพลาด: ไม่พบข้อมูล", "error");
+    }
+    const actualQty = parseInt(tempEditActualQuantity) || 0;
+    if (actualQty < 1) {
+      return addToast("จำนวนชิ้นที่ส่งต้องมากกว่า 0", "error");
+    }
+    const now = new Date().toISOString();
+    try {
+      const { error } = await supabase
+        .from("today_houses")
+        .update({
+          income: tempEditIncome ? parseFloat(tempEditIncome) : null, // optional
+          delivery_notes: tempEditNotes || null,
+          actual_quantity: actualQty, // required แต่ default มี
+          updated_at: now,
+        })
+        .eq("id", tempEditHouseId);
+      if (error) throw error;
+      setHouses((prev) =>
+        prev.map((h) =>
+          h.id === tempEditHouseId
+            ? {
+                ...h,
+                income: tempEditIncome ? parseFloat(tempEditIncome) : undefined,
+                delivery_notes: tempEditNotes || null,
+                actual_quantity: actualQty,
+                updated_at: now,
+              }
+            : h,
+        ),
+      );
+      setShowEditDeliveredModal(false);
+      addToast("แก้ไขข้อมูลการส่งสำเร็จ!", "success");
+    } catch (err: any) {
+      addToast(`เกิดข้อผิดพลาด: ${err.message || "Unknown"}`, "error");
+    }
+  };
   const deleteHouse = async (id: string) => {
     if (!confirm("ลบรายการนี้จริงหรือ?")) return;
     try {
@@ -469,7 +560,6 @@ export default function NavigatePage() {
       addToast(`ลบไม่สำเร็จ: ${err.message || "Unknown"}`, "error");
     }
   };
-
   const openMaps = useCallback(
     (lat: number, lng: number) => {
       const origin = currentPosition || DEFAULT_POSITION;
@@ -480,7 +570,6 @@ export default function NavigatePage() {
     },
     [currentPosition],
   );
-
   // ปุ่มรีเฟรชตำแหน่ง + เรียงใหม่ (สำรอง)
   const forceRefreshLocationAndSort = async () => {
     setSorting(true);
@@ -495,7 +584,6 @@ export default function NavigatePage() {
       setSorting(false);
     }
   };
-
   // Init + Auto update position (สำคัญที่สุด!)
   useEffect(() => {
     let isMounted = true;
@@ -512,7 +600,6 @@ export default function NavigatePage() {
       shouldResortRef.current = true;
     };
     init();
-
     // ติดตามตำแหน่งตลอดเวลา
     if ("geolocation" in navigator) {
       watchIdRef.current = navigator.geolocation.watchPosition(
@@ -528,7 +615,6 @@ export default function NavigatePage() {
         { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 },
       );
     }
-
     // Fallback ทุก 30 วินาที
     const interval = setInterval(async () => {
       try {
@@ -537,7 +623,6 @@ export default function NavigatePage() {
         shouldResortRef.current = true;
       } catch {}
     }, 30000);
-
     return () => {
       isMounted = false;
       if (watchIdRef.current !== null)
@@ -545,7 +630,6 @@ export default function NavigatePage() {
       clearInterval(interval);
     };
   }, [refreshData]);
-
   // Auto re-sort เมื่อ flag ถูกตั้ง
   useEffect(() => {
     if (
@@ -560,7 +644,6 @@ export default function NavigatePage() {
       return () => clearTimeout(timer);
     }
   }, [currentPosition, houses.length, loading, sorting, reSortHouses]);
-
   const undelivered = useMemo(
     () =>
       houses
@@ -579,16 +662,28 @@ export default function NavigatePage() {
         ),
     [houses],
   );
+  // sum quantity สำหรับ undelivered (planned)
+  const undeliveredTotal = useMemo(
+    () => undelivered.reduce((sum, h) => sum + (h.quantity || 1), 0),
+    [undelivered],
+  );
+  // sum actual_quantity สำหรับ delivered (ถ้าไม่มีใช้ quantity)
+  const deliveredTotal = useMemo(
+    () =>
+      delivered.reduce(
+        (sum, h) => sum + (h.actual_quantity || h.quantity || 1),
+        0,
+      ),
+    [delivered],
+  );
   const totalPending = useMemo(
     () => pendingDates.reduce((sum, item) => sum + item.count, 0),
     [pendingDates],
   );
-
   const isUsingDefault =
     !currentPosition ||
     (Math.abs(currentPosition.lat - DEFAULT_POSITION.lat) < 0.001 &&
       Math.abs(currentPosition.lng - DEFAULT_POSITION.lng) < 0.001);
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
@@ -596,7 +691,6 @@ export default function NavigatePage() {
       </div>
     );
   }
-
   return (
     <>
       <div className="min-h-screen bg-gray-50 pb-32">
@@ -610,26 +704,19 @@ export default function NavigatePage() {
                 </h1>
                 <p className="text-sm text-gray-600">
                   {activeTab === "undelivered"
-                    ? undelivered.length
-                    : delivered.length}{" "}
-                  รายการ
-                  {totalPending > 0 && (
-                    <>
-                      <button
-                        onClick={() => setShowPendingModal(true)}
-                        className="ml-3 text-blue-600 underline font-medium"
-                      >
-                        ดึงงานค้างอีก {totalPending} รายการ
-                      </button>
-                      <button
-                        onClick={clearAllPending}
-                        className="ml-3 text-red-600 underline font-medium"
-                      >
-                        ล้างงานค้างทั้งหมด
-                      </button>
-                    </>
-                  )}
+                    ? `มี ${undelivered.length} บ้าน, ${undeliveredTotal} ชิ้น`
+                    : `มี ${delivered.length} บ้าน, ${deliveredTotal} ชิ้น`}
                 </p>
+                {totalPending > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    <button
+                      onClick={() => setShowPendingModal(true)}
+                      className="text-blue-600 underline font-medium hover:text-blue-800"
+                    >
+                      ดึงงานค้างอีก {totalPending} ชิ้น
+                    </button>
+                  </div>
+                )}
               </div>
               {/* ปุ่มรีเฟรชตำแหน่งสำรอง */}
               <button
@@ -642,7 +729,6 @@ export default function NavigatePage() {
                 รีเฟรชตำแหน่ง
               </button>
             </div>
-
             <div className="flex flex-wrap gap-3 mb-4">
               <button
                 onClick={openFullRouteOnMaps}
@@ -657,24 +743,22 @@ export default function NavigatePage() {
                 <Save className="w-5 h-5" /> เก็บข้อมูลวันนี้
               </button>
             </div>
-
             <div className="flex bg-gray-100 rounded-xl p-1 text-sm font-medium text-gray-800">
               <button
                 onClick={() => setActiveTab("undelivered")}
                 className={`flex-1 py-3 rounded-lg ${activeTab === "undelivered" ? "bg-white shadow-sm" : ""}`}
               >
-                ยังไม่ส่ง ({undelivered.length})
+                ยังไม่ส่ง ({undelivered.length} บ้าน, {undeliveredTotal} ชิ้น)
               </button>
               <button
                 onClick={() => setActiveTab("delivered")}
                 className={`flex-1 py-3 rounded-lg ${activeTab === "delivered" ? "bg-white shadow-sm" : ""}`}
               >
-                ส่งแล้ว ({delivered.length})
+                ส่งแล้ว ({delivered.length} บ้าน, {deliveredTotal} ชิ้น)
               </button>
             </div>
           </div>
         </div>
-
         {/* แจ้งเตือนใช้ตำแหน่งชั่วคราว */}
         {isUsingDefault && (
           <div className="max-w-7xl mx-auto px-4 mt-4">
@@ -689,7 +773,6 @@ export default function NavigatePage() {
             </div>
           </div>
         )}
-
         {/* รายการบ้าน */}
         <div className="max-w-7xl mx-auto px-4 py-6 text-gray-800">
           {houses.length === 0 ? (
@@ -701,7 +784,7 @@ export default function NavigatePage() {
                   onClick={() => setShowPendingModal(true)}
                   className="mt-6 px-8 py-4 bg-linear-to-r from-blue-600 to-indigo-700 text-white text-xl font-bold rounded-2xl"
                 >
-                  ดึงงานค้าง {totalPending} รายการ
+                  ดึงงานค้าง {totalPending} ชิ้น
                 </button>
               )}
             </div>
@@ -718,7 +801,10 @@ export default function NavigatePage() {
                           house.lng,
                         )
                       : null;
-
+                  const plannedQty = house.quantity || 1;
+                  const actualQty = house.actual_quantity || plannedQty; // สำหรับ delivered
+                  const displayQty =
+                    activeTab === "delivered" ? actualQty : plannedQty;
                   return (
                     <div
                       key={house.id}
@@ -733,37 +819,38 @@ export default function NavigatePage() {
                           <Trash2 className="w-5 h-5" />
                         </button>
                       </div>
-
                       <div className="p-5">
                         <div className="flex items-start justify-between mb-3">
                           <span className="text-2xl font-bold text-indigo-600">
                             #{house.order_index}
                           </span>
-                          {house.delivered && (
-                            <span className="text-xs bg-green-100 text-green-700 px-3 py-1 rounded-full font-medium">
-                              ส่งแล้ว
-                            </span>
-                          )}
                         </div>
                         <h3 className="font-bold text-gray-900 text-lg">
                           {house.full_name}
                         </h3>
                         <p className="text-sm text-gray-600">{house.phone}</p>
+                        <p className="text-sm font-medium text-blue-600 mt-1">
+                          จำนวน {displayQty} ชิ้น
+                        </p>
                         <p className="text-xs text-gray-500 mt-2 line-clamp-2">
                           {house.address}
                         </p>
                         <div className="flex items-center gap-3 mt-4 text-xs text-gray-500">
                           {distance !== null && (
-                            <span>{distance.toFixed(1)} กม.</span>
+                            <span>~ {distance.toFixed(1)} กม.</span>
                           )}
                           {house.income && (
                             <span className="font-bold text-green-600">
                               {house.income.toLocaleString()} ฿
                             </span>
                           )}
+                          {house.delivered && (
+                            <span className="text-xs bg-green-100 text-green-700 px-3 py-1 rounded-full font-medium ml-auto">
+                              ส่งแล้ว
+                            </span>
+                          )}
                         </div>
                       </div>
-
                       <div className="px-5 pb-5">
                         {house.lat && house.lng ? (
                           <button
@@ -782,7 +869,15 @@ export default function NavigatePage() {
                             onClick={() => startMarkDelivered(house.id)}
                             className="w-full mt-3 py-3 text-sm font-bold text-white bg-linear-to-r from-blue-600 to-indigo-600 rounded-xl"
                           >
-                            ส่งแล้ว
+                            ส่งแล้ว ({plannedQty} ชิ้น)
+                          </button>
+                        )}
+                        {house.delivered && (
+                          <button
+                            onClick={() => startEditDelivered(house.id)}
+                            className="w-full mt-3 py-3 text-sm font-bold text-white bg-linear-to-r from-yellow-500 to-orange-600 rounded-xl flex items-center justify-center gap-2"
+                          >
+                            <Edit3 className="w-4 h-4" /> แก้ไขรายได้/จำนวน
                           </button>
                         )}
                       </div>
@@ -793,12 +888,10 @@ export default function NavigatePage() {
             </div>
           )}
         </div>
-
         <div
           id="toast-container"
           className="fixed top-16 right-4 z-50 space-y-3"
         />
-
         {/* Modal ตั้งค่าตำแหน่ง */}
         {showManualModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -851,9 +944,15 @@ export default function NavigatePage() {
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl p-6 max-w-md w-full max-h-96 overflow-y-auto text-gray-800">
               <div className="flex justify-between items-center mb-5 sticky top-0 bg-white">
-                <h2 className="text-xl font-bold">
-                  ดึงงานค้าง ({totalPending} รายการ)
-                </h2>
+                <div className="flex items-center gap-3">
+                  <h2 className="text-xl font-bold">ดึงงานค้าง</h2>
+                  <button
+                    onClick={clearAllPending}
+                    className="text-red-600 underline font-medium hover:text-red-800"
+                  >
+                    ล้างทั้งหมด
+                  </button>
+                </div>
                 <button
                   onClick={() => setShowPendingModal(false)}
                   className="p-1 hover:bg-gray-100 rounded"
@@ -873,65 +972,123 @@ export default function NavigatePage() {
                   >
                     <div>
                       <p className="font-bold">
-                        {new Date(pd.original_date).toLocaleDateString(
-                          "th-TH",
-                          {
-                            weekday: "long",
-                            day: "numeric",
-                            month: "long",
-                            year: "numeric",
-                          },
-                        )}
+                        {formatThaiShortDate(pd.original_date)}
                       </p>
-                      <p className="text-sm text-gray-600">{pd.count} รายการ</p>
+                      <p className="text-sm text-gray-600">
+                        มีจำนวน {pd.count} ชิ้น
+                      </p>
                     </div>
-                    <button
-                      onClick={() => loadPendingAndResort(pd.original_date)}
-                      className="bg-linear-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-xl font-bold hover:shadow-lg transition"
-                    >
-                      ดึงมาใช้
-                    </button>
+                    <div className="flex gap-4">
+                      <button
+                        onClick={() => clearPendingForDate(pd.original_date)}
+                        className="text-red-600 underline font-medium hover:text-red-800"
+                      >
+                        ล้างวันนี้
+                      </button>
+                      <button
+                        onClick={() => loadPendingAndResort(pd.original_date)}
+                        className="text-blue-600 underline font-medium hover:text-red-800"
+                      >
+                        ดึงมาใช้
+                      </button>
+                    </div>
                   </div>
                 ))
               )}
             </div>
           </div>
         )}
-        {/* Modal บันทึกรายได้ */}
-        {showDeliveryModal && tempHouseId && (
+        {/* Modal บันทึกส่งแล้ว (mark delivered) */}
+        {showMarkDeliveredModal && tempHouseId && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl p-6 max-w-sm w-full text-gray-800">
-              <h2 className="text-xl font-bold mb-5">บันทึกรายได้การส่ง</h2>
+              <div className="flex justify-between items-center mb-5">
+                <h2 className="text-xl font-bold">บันทึกการส่ง</h2>
+                <button
+                  onClick={() => setShowMarkDeliveredModal(false)}
+                  className="p-1 hover:bg-gray-100 rounded"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              <input
+                type="text"
+                placeholder="จำนวนชิ้นที่ส่งสำเร็จ *บังคับ"
+                value={tempActualQuantity}
+                onChange={(e) => setTempActualQuantity(e.target.value)}
+                pattern="[0-9]*"
+                inputMode="numeric"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl mb-4 focus:border-blue-500 focus:ring focus:ring-blue-200"
+                autoFocus
+              />
               <input
                 type="number"
-                placeholder="รายได้ (บาท) *บังคับ"
+                placeholder="รายได้ (บาท)"
                 value={tempIncome}
                 onChange={(e) => setTempIncome(e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl mb-4 focus:border-blue-500 focus:ring focus:ring-blue-200"
-                autoFocus
               />
               <textarea
                 placeholder="หมายเหตุ (ไม่บังคับ)"
                 value={tempNotes}
                 onChange={(e) => setTempNotes(e.target.value)}
                 rows={3}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl resize-none focus:border-blue-500 focus:ring focus:ring-blue-200"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl resize-none focus:border-blue-500 focus:ring focus:ring-blue-200 mb-6"
               />
-              <div className="flex gap-3 mt-6">
+              <button
+                onClick={confirmMarkDelivered}
+                disabled={(parseInt(tempActualQuantity) || 0) < 1}
+                className="w-full py-3.5 bg-linear-to-r from-emerald-600 to-green-600 text-white rounded-xl font-bold hover:from-emerald-700 hover:to-green-600 disabled:opacity-50 transition"
+              >
+                ยืนยันส่งแล้ว
+              </button>
+            </div>
+          </div>
+        )}
+        {/* ใหม่: Modal แก้ไขการส่ง */}
+        {showEditDeliveredModal && tempEditHouseId && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl p-6 max-w-sm w-full text-gray-800">
+              <div className="flex justify-between items-center mb-5">
+                <h2 className="text-xl font-bold">แก้ไขข้อมูลการส่ง</h2>
                 <button
-                  onClick={() => setShowDeliveryModal(false)}
-                  className="flex-1 py-3 bg-gray-200 rounded-xl font-medium hover:bg-gray-300 transition"
+                  onClick={() => setShowEditDeliveredModal(false)}
+                  className="p-1 hover:bg-gray-100 rounded"
                 >
-                  ยกเลิก
-                </button>
-                <button
-                  onClick={confirmMarkDelivered}
-                  disabled={!tempIncome || isNaN(parseFloat(tempIncome))}
-                  className="flex-1 py-3 bg-linear-to-r from-emerald-600 to-green-600 text-white rounded-xl font-bold hover:from-emerald-700 hover:to-green-700 disabled:opacity-50 transition"
-                >
-                  ยืนยันส่งแล้ว
+                  <X className="w-6 h-6" />
                 </button>
               </div>
+              <input
+                type="text"
+                placeholder="จำนวนชิ้นที่ส่งสำเร็จ *บังคับ"
+                value={tempEditActualQuantity}
+                onChange={(e) => setTempEditActualQuantity(e.target.value)}
+                pattern="[0-9]*"
+                inputMode="numeric"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl mb-4 focus:border-blue-500 focus:ring focus:ring-blue-200"
+                autoFocus
+              />
+              <input
+                type="number"
+                placeholder="รายได้ (บาท)"
+                value={tempEditIncome}
+                onChange={(e) => setTempEditIncome(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl mb-4 focus:border-blue-500 focus:ring focus:ring-blue-200"
+              />
+              <textarea
+                placeholder="หมายเหตุ (ไม่บังคับ)"
+                value={tempEditNotes}
+                onChange={(e) => setTempEditNotes(e.target.value)}
+                rows={3}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl resize-none focus:border-blue-500 focus:ring focus:ring-blue-200 mb-6"
+              />
+              <button
+                onClick={confirmEditDelivered}
+                disabled={(parseInt(tempEditActualQuantity) || 0) < 1}
+                className="w-full py-3.5 bg-linear-to-r from-yellow-500 to-orange-600 text-white rounded-xl font-bold hover:from-yellow-600 hover:to-orange-700 disabled:opacity-50 transition"
+              >
+                ยืนยันแก้ไข
+              </button>
             </div>
           </div>
         )}
