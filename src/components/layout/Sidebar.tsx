@@ -8,8 +8,6 @@ import { Home, Package, Upload, Route, MapPin } from "lucide-react";
 const menus = [
   { href: "/dashboard", label: "แดชบอร์ด", icon: Home },
   { href: "/dashboard/houses", label: "คลังบ้าน", icon: Package },
-  { href: "/dashboard/routes/upload", label: "อัพโหลดวันนี้", icon: Upload },
-  { href: "/dashboard/routes/income", label: "คำนวณรายได้", icon: Route },
   { href: "/dashboard/routes/navigate", label: "นำทางส่งของ", icon: MapPin },
 ];
 

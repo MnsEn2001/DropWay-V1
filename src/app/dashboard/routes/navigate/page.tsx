@@ -8,29 +8,21 @@ import {
   Loader2,
   X,
   Trash2,
-  Save,
   Route as MapIcon,
-  Edit3,
+  Copy, // ใหม่: สำหรับคัดลอก
 } from "lucide-react";
 
 interface House {
   id: string;
-  user_id?: string;
-  house_id?: string;
+  user_id: string;
   full_name: string;
   phone: string;
   address: string;
-  lat?: number;
-  lng?: number;
-  quantity?: number; // จำนวนชิ้นที่วางแผน
-  actual_quantity?: number; // จำนวนชิ้นที่ส่งจริง (สำหรับ delivered)
-  delivered: boolean;
-  delivered_at?: string;
+  lat: number | null;
+  lng: number | null;
   order_index: number;
-  income?: number;
-  delivery_notes?: string | null;
-  created_at?: string;
-  updated_at?: string;
+  created_at: string;
+  updated_at: string;
 }
 
 const DEFAULT_POSITION = { lat: 16.8833, lng: 99.125 };
@@ -110,33 +102,15 @@ export default function NavigatePage() {
   } | null>(null);
   const [sorting, setSorting] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"undelivered" | "delivered">(
-    "undelivered",
-  );
-  // Modals
   const [showManualModal, setShowManualModal] = useState(false);
   const [showPendingModal, setShowPendingModal] = useState(false);
-  const [showMarkDeliveredModal, setShowMarkDeliveredModal] = useState(false); // เปลี่ยนชื่อเพื่อชัดเจน
-  const [showEditDeliveredModal, setShowEditDeliveredModal] = useState(false); // ใหม่: สำหรับแก้ไข
   const [manualCoordInput, setManualCoordInput] = useState("");
   const [detectedLat, setDetectedLat] = useState<number | null>(null);
   const [detectedLng, setDetectedLng] = useState<number | null>(null);
-  // สำหรับกด "ส่งแล้ว"
-  const [tempHouseId, setTempHouseId] = useState<string | null>(null);
-  const [tempIncome, setTempIncome] = useState<string>("");
-  const [tempActualQuantity, setTempActualQuantity] = useState<string>(""); // เปลี่ยนเป็น string เพื่อให้ลบได้
-  const [tempNotes, setTempNotes] = useState("");
-  // ใหม่: สำหรับแก้ไข delivered
-  const [tempEditHouseId, setTempEditHouseId] = useState<string | null>(null);
-  const [tempEditIncome, setTempEditIncome] = useState<string>("");
-  const [tempEditActualQuantity, setTempEditActualQuantity] =
-    useState<string>(""); // เปลี่ยนเป็น string
-  const [tempEditNotes, setTempEditNotes] = useState("");
-  // Flag ป้องกัน loop
   const shouldResortRef = useRef(false);
   const isSortingRef = useRef(false);
   const watchIdRef = useRef<number | null>(null);
-  // Toast
+
   const addToast = (
     message: string,
     type: "success" | "error" | "info" = "info",
@@ -157,6 +131,17 @@ export default function NavigatePage() {
     container.appendChild(toast);
     setTimeout(() => toast.remove(), 3500);
   };
+
+  // ใหม่: คัดลอกเบอร์โทร
+  const copyPhone = async (phone: string) => {
+    try {
+      await navigator.clipboard.writeText(phone);
+      addToast("คัดลอกเบอร์โทรแล้ว", "success");
+    } catch (err) {
+      addToast("คัดลอกไม่สำเร็จ", "error");
+    }
+  };
+
   const getCurrentPosition = () =>
     new Promise<{ lat: number; lng: number }>((resolve, reject) => {
       if (!navigator.geolocation)
@@ -168,6 +153,7 @@ export default function NavigatePage() {
         { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 },
       );
     });
+
   const detectLocation = async () => {
     try {
       const pos = await getCurrentPosition();
@@ -179,6 +165,7 @@ export default function NavigatePage() {
       addToast("ไม่สามารถหาตำแหน่งได้", "error");
     }
   };
+
   const setManualPosition = () => {
     if (!detectedLat || !detectedLng)
       return addToast("พิกัดไม่ถูกต้อง", "error");
@@ -187,8 +174,9 @@ export default function NavigatePage() {
     addToast("ตั้งค่าตำแหน่งแล้ว → กำลังเรียงใหม่...", "success");
     shouldResortRef.current = true;
   };
-  // Cache ระยะทาง
+
   const distanceCache = useMemo(() => new Map<string, number>(), []);
+
   const calculateDistance = useCallback(
     (lat1: number, lng1: number, lat2: number, lng2: number) => {
       const key = `${lat1.toFixed(6)},${lng1.toFixed(6)},${lat2.toFixed(6)},${lng2.toFixed(6)}`;
@@ -199,7 +187,7 @@ export default function NavigatePage() {
     },
     [distanceCache],
   );
-  // ล้างงานค้างทั้งหมด
+
   const clearAllPending = async () => {
     if (!confirm("ล้างงานค้างทั้งหมดจริงหรือ? (ไม่สามารถกู้คืนได้)")) return;
     const {
@@ -218,7 +206,7 @@ export default function NavigatePage() {
       addToast(`ล้างไม่สำเร็จ: ${err.message || "Unknown"}`, "error");
     }
   };
-  // ล้างงานค้างเฉพาะวันที่
+
   const clearPendingForDate = async (original_date: string) => {
     if (
       !confirm(
@@ -246,35 +234,53 @@ export default function NavigatePage() {
       addToast(`ล้างไม่สำเร็จ: ${err.message || "Unknown"}`, "error");
     }
   };
-  // Refresh data + ปรับ load pending ให้ sum quantity
+
+  // ใหม่: ล้างงานวันนี้ทั้งหมด
+  const clearAllToday = async () => {
+    if (!confirm("ล้างงานวันนี้ทั้งหมดจริงหรือ? (ไม่สามารถกู้คืนได้)")) return;
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return addToast("กรุณาเข้าสู่ระบบก่อน", "error");
+    try {
+      const { error } = await supabase
+        .from("today_houses")
+        .delete()
+        .eq("user_id", user.id);
+      if (error) throw error;
+      setHouses([]);
+      addToast("ล้างงานวันนี้ทั้งหมดเรียบร้อย!", "success");
+    } catch (err: any) {
+      addToast(`ล้างไม่สำเร็จ: ${err.message || "Unknown"}`, "error");
+    }
+  };
+
   const refreshData = useCallback(async () => {
     const {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) return;
-    let mergedToday: any[] = [];
     try {
       const { data, error } = await supabase.rpc(
         "refresh_and_merge_today_houses",
       );
       if (error) throw error;
-      mergedToday = data || [];
-      if (mergedToday.length > 0)
-        addToast("อัพเดทข้อมูลล่าสุดเรียบร้อย!", "success");
       setHouses(
-        mergedToday.map((h: any) => ({
-          ...h,
+        (data || []).map((h: any) => ({
           id: h.id,
-          lat: h.lat ? Number(h.lat) : undefined,
-          lng: h.lng ? Number(h.lng) : undefined,
-          quantity: h.quantity || 1,
-          actual_quantity: h.actual_quantity
-            ? Number(h.actual_quantity)
-            : undefined, // ใหม่
-          income: h.income ? Number(h.income) : undefined,
+          user_id: h.user_id,
+          full_name: h.full_name,
+          phone: h.phone,
+          address: h.address,
+          lat: h.lat ? Number(h.lat) : null,
+          lng: h.lng ? Number(h.lng) : null,
           order_index: Number(h.order_index),
+          created_at: h.created_at,
+          updated_at: h.updated_at,
         })),
       );
+      if ((data || []).length > 0)
+        addToast("อัพเดทข้อมูลล่าสุดเรียบร้อย!", "success");
     } catch {
       // Fallback
       try {
@@ -289,33 +295,31 @@ export default function NavigatePage() {
               (p: any) => p.full_name === t.full_name && p.phone === t.phone,
             );
             return {
-              ...t,
-              lat: t.lat ? Number(t.lat) : p?.lat ? Number(p.lat) : undefined,
-              lng: t.lng ? Number(t.lng) : p?.lng ? Number(p.lng) : undefined,
-              quantity: t.quantity || 1,
-              actual_quantity: t.actual_quantity
-                ? Number(t.actual_quantity)
-                : undefined, // ใหม่
-              income: t.income ? Number(t.income) : undefined,
+              id: t.id,
+              user_id: t.user_id,
+              full_name: t.full_name,
+              phone: t.phone,
+              address: t.address,
+              lat: t.lat ? Number(t.lat) : p?.lat ? Number(p.lat) : null,
+              lng: t.lng ? Number(t.lng) : p?.lng ? Number(p.lng) : null,
               order_index: Number(t.order_index),
+              created_at: t.created_at,
+              updated_at: t.updated_at,
             };
           })
           .sort((a: any, b: any) => a.order_index - b.order_index);
         setHouses(fallbackMerged);
       } catch {}
     }
-    // Load pending + sum quantity per date
+    // Load pending + count รายการ per date
     try {
       const { data: pending } = await supabase
         .from("pending_houses")
-        .select("original_date, quantity")
+        .select("original_date")
         .eq("user_id", user.id);
       const map = new Map<string, number>();
       pending?.forEach((r: any) =>
-        map.set(
-          r.original_date,
-          (map.get(r.original_date) || 0) + (r.quantity || 1),
-        ),
+        map.set(r.original_date, (map.get(r.original_date) || 0) + 1),
       );
       const pendingList = Array.from(map.entries())
         .map(([d, c]) => ({ original_date: d, count: c }))
@@ -328,39 +332,35 @@ export default function NavigatePage() {
     } catch {}
     shouldResortRef.current = true;
   }, []);
-  // เรียงใหม่
+
   const reSortHouses = useCallback(async () => {
     if (!currentPosition || houses.length === 0 || isSortingRef.current) return;
-    const undelivered = houses.filter((h) => !h.delivered);
-    if (undelivered.length === 0) return;
     setSorting(true);
     isSortingRef.current = true;
     const pos = currentPosition;
-    const withCoords = undelivered.filter((h) => h.lat && h.lng);
-    const withoutCoords = undelivered.filter((h) => !h.lat || !h.lng);
+    const withCoords = houses.filter((h) => h.lat && h.lng);
+    const withoutCoords = houses.filter((h) => !h.lat || !h.lng);
     const sortedWith = withCoords
       .map((h) => ({
-        h,
+        ...h,
         dist: calculateDistance(pos.lat, pos.lng, h.lat!, h.lng!),
       }))
       .sort((a, b) => a.dist - b.dist)
-      .map(({ h }, i) => ({ ...h, order_index: i + 1 }));
+      .map((h, i) => ({ ...h, order_index: i + 1 }));
     const sortedWithout = withoutCoords
       .sort((a, b) => a.order_index - b.order_index)
       .map((h, i) => ({ ...h, order_index: sortedWith.length + i + 1 }));
-    const sortedUndelivered = [...sortedWith, ...sortedWithout];
-    const deliveredHouses = houses.filter((h) => h.delivered);
-    const sortedAll = [...sortedUndelivered, ...deliveredHouses];
+    const sortedHouses = [...sortedWith, ...sortedWithout];
     try {
       await Promise.all(
-        sortedUndelivered.map((h) =>
+        sortedHouses.map((h) =>
           supabase
             .from("today_houses")
             .update({ order_index: h.order_index })
             .eq("id", h.id),
         ),
       );
-      setHouses(sortedAll);
+      setHouses(sortedHouses);
     } catch (err: any) {
       addToast(`เรียงลำดับไม่สำเร็จ: ${err.message || "Unknown"}`, "error");
     } finally {
@@ -368,16 +368,16 @@ export default function NavigatePage() {
       isSortingRef.current = false;
     }
   }, [currentPosition, houses, calculateDistance]);
-  // เปิดเส้นทางทั้งหมด
+
   const openFullRouteOnMaps = useCallback(async () => {
     if (!currentPosition) return addToast("ยังไม่มีตำแหน่งปัจจุบัน", "error");
     await refreshData();
-    const validHouses = houses.filter((h) => !h.delivered && h.lat && h.lng);
+    const validHouses = houses.filter((h) => h.lat && h.lng);
     if (validHouses.length === 0)
       return addToast("ไม่มีจุดหมายที่มีพิกัด", "error");
     const sorted = validHouses
       .map((h) => ({
-        h,
+        ...h,
         dist: calculateDistance(
           currentPosition.lat,
           currentPosition.lng,
@@ -386,7 +386,7 @@ export default function NavigatePage() {
         ),
       }))
       .sort((a, b) => a.dist - b.dist)
-      .map(({ h }, i) => ({ ...h, order_index: i + 1 }));
+      .map((h, i) => ({ ...h, order_index: i + 1 }));
     try {
       await Promise.all(
         sorted.map((h) =>
@@ -405,12 +405,10 @@ export default function NavigatePage() {
       ...sorted.map((h) => `${h.lat},${h.lng}`),
     ];
     const url = `https://www.google.com/maps/dir/${points.map(encodeURIComponent).join("/")}`;
-    addToast(
-      `เปิดเส้นทางแล้ว! ${sorted.reduce((sum, h) => sum + (h.quantity || 1), 0)} ชิ้น`,
-      "success",
-    );
+    addToast(`เปิดเส้นทางแล้ว! ${sorted.length} บ้าน`, "success");
     window.open(url, "_blank");
   }, [currentPosition, houses, calculateDistance, refreshData]);
+
   const loadPendingAndResort = useCallback(
     async (original_date: string) => {
       try {
@@ -428,123 +426,24 @@ export default function NavigatePage() {
     },
     [refreshData],
   );
-  const archiveTodayData = async () => {
-    if (!confirm("เก็บข้อมูลวันนี้และล้างหน้างานทั้งหมดหรือไม่?")) return;
-    try {
-      const { error } = await supabase.rpc("archive_users_today_houses");
-      if (error) throw error;
-      addToast("เก็บข้อมูลวันนี้เรียบร้อย!", "success");
-      await refreshData();
-    } catch (err: any) {
-      addToast(`เกิดข้อผิดพลาด: ${err.message || "Unknown"}`, "error");
-    }
-  };
-  const startMarkDelivered = (id: string) => {
-    const house = houses.find((h) => h.id === id);
-    if (!house) return;
-    setTempIncome(house.income?.toString() || "");
-    setTempActualQuantity((house.quantity || 1).toString()); // default เป็น string ของ quantity ที่วางแผน
-    setTempNotes(house.delivery_notes || "");
-    setTempHouseId(id);
-    setShowMarkDeliveredModal(true);
-  };
-  const confirmMarkDelivered = async () => {
-    if (!tempHouseId) {
-      return addToast("เกิดข้อผิดพลาด: ไม่พบข้อมูล", "error");
-    }
-    const actualQty = parseInt(tempActualQuantity) || 0;
-    if (actualQty < 1) {
-      return addToast("จำนวนชิ้นที่ส่งต้องมากกว่า 0", "error");
-    }
-    const now = new Date().toISOString();
+
+  // ใหม่: Mark delivered = DELETE
+  const markDelivered = async (id: string) => {
+    if (!confirm("ยืนยันส่งแล้ว? (จะลบออกจากรายการ)")) return;
     try {
       const { error } = await supabase
         .from("today_houses")
-        .update({
-          delivered: true,
-          delivered_at: now,
-          income: tempIncome ? parseFloat(tempIncome) : null, // optional
-          delivery_notes: tempNotes || null,
-          actual_quantity: actualQty, // ใหม่
-          updated_at: now,
-        })
-        .eq("id", tempHouseId);
+        .delete()
+        .eq("id", id);
       if (error) throw error;
-      setHouses((prev) =>
-        prev.map((h) =>
-          h.id === tempHouseId
-            ? {
-                ...h,
-                delivered: true,
-                delivered_at: now,
-                income: tempIncome ? parseFloat(tempIncome) : undefined,
-                delivery_notes: tempNotes || null,
-                actual_quantity: actualQty, // ใหม่
-                updated_at: now,
-              }
-            : h,
-        ),
-      );
-      setShowMarkDeliveredModal(false);
-      setActiveTab("delivered"); // ใหม่: ย้ายไป tab ส่งแล้ว
-      addToast("ส่งแล้วและบันทึกสำเร็จ!", "success");
+      setHouses((prev) => prev.filter((h) => h.id !== id));
+      addToast("บันทึกส่งแล้วเรียบร้อย!", "success");
       shouldResortRef.current = true;
     } catch (err: any) {
       addToast(`เกิดข้อผิดพลาด: ${err.message || "Unknown"}`, "error");
     }
   };
-  // ใหม่: เริ่มแก้ไข delivered
-  const startEditDelivered = (id: string) => {
-    const house = houses.find((h) => h.id === id);
-    if (!house) return;
-    setTempEditIncome(house.income?.toString() || "");
-    setTempEditActualQuantity(
-      (house.actual_quantity || house.quantity || 1).toString(),
-    ); // default เป็น string ของปัจจุบัน
-    setTempEditNotes(house.delivery_notes || "");
-    setTempEditHouseId(id);
-    setShowEditDeliveredModal(true);
-  };
-  // ใหม่: ยืนยันแก้ไข
-  const confirmEditDelivered = async () => {
-    if (!tempEditHouseId) {
-      return addToast("เกิดข้อผิดพลาด: ไม่พบข้อมูล", "error");
-    }
-    const actualQty = parseInt(tempEditActualQuantity) || 0;
-    if (actualQty < 1) {
-      return addToast("จำนวนชิ้นที่ส่งต้องมากกว่า 0", "error");
-    }
-    const now = new Date().toISOString();
-    try {
-      const { error } = await supabase
-        .from("today_houses")
-        .update({
-          income: tempEditIncome ? parseFloat(tempEditIncome) : null, // optional
-          delivery_notes: tempEditNotes || null,
-          actual_quantity: actualQty, // required แต่ default มี
-          updated_at: now,
-        })
-        .eq("id", tempEditHouseId);
-      if (error) throw error;
-      setHouses((prev) =>
-        prev.map((h) =>
-          h.id === tempEditHouseId
-            ? {
-                ...h,
-                income: tempEditIncome ? parseFloat(tempEditIncome) : undefined,
-                delivery_notes: tempEditNotes || null,
-                actual_quantity: actualQty,
-                updated_at: now,
-              }
-            : h,
-        ),
-      );
-      setShowEditDeliveredModal(false);
-      addToast("แก้ไขข้อมูลการส่งสำเร็จ!", "success");
-    } catch (err: any) {
-      addToast(`เกิดข้อผิดพลาด: ${err.message || "Unknown"}`, "error");
-    }
-  };
+
   const deleteHouse = async (id: string) => {
     if (!confirm("ลบรายการนี้จริงหรือ?")) return;
     try {
@@ -560,6 +459,7 @@ export default function NavigatePage() {
       addToast(`ลบไม่สำเร็จ: ${err.message || "Unknown"}`, "error");
     }
   };
+
   const openMaps = useCallback(
     (lat: number, lng: number) => {
       const origin = currentPosition || DEFAULT_POSITION;
@@ -570,7 +470,7 @@ export default function NavigatePage() {
     },
     [currentPosition],
   );
-  // ปุ่มรีเฟรชตำแหน่ง + เรียงใหม่ (สำรอง)
+
   const forceRefreshLocationAndSort = async () => {
     setSorting(true);
     try {
@@ -584,7 +484,7 @@ export default function NavigatePage() {
       setSorting(false);
     }
   };
-  // Init + Auto update position (สำคัญที่สุด!)
+
   useEffect(() => {
     let isMounted = true;
     const init = async () => {
@@ -600,7 +500,6 @@ export default function NavigatePage() {
       shouldResortRef.current = true;
     };
     init();
-    // ติดตามตำแหน่งตลอดเวลา
     if ("geolocation" in navigator) {
       watchIdRef.current = navigator.geolocation.watchPosition(
         (pos) => {
@@ -609,13 +508,12 @@ export default function NavigatePage() {
             lng: pos.coords.longitude,
           };
           setCurrentPosition(newPos);
-          shouldResortRef.current = true; // บังคับเรียงใหม่ทุกครั้งที่ขยับ
+          shouldResortRef.current = true;
         },
         (err) => console.log("watchPosition error:", err),
         { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 },
       );
     }
-    // Fallback ทุก 30 วินาที
     const interval = setInterval(async () => {
       try {
         const pos = await getCurrentPosition();
@@ -630,7 +528,7 @@ export default function NavigatePage() {
       clearInterval(interval);
     };
   }, [refreshData]);
-  // Auto re-sort เมื่อ flag ถูกตั้ง
+
   useEffect(() => {
     if (
       shouldResortRef.current &&
@@ -644,46 +542,24 @@ export default function NavigatePage() {
       return () => clearTimeout(timer);
     }
   }, [currentPosition, houses.length, loading, sorting, reSortHouses]);
-  const undelivered = useMemo(
-    () =>
-      houses
-        .filter((h) => !h.delivered)
-        .sort((a, b) => a.order_index - b.order_index),
+
+  const sortedHouses = useMemo(
+    () => houses.sort((a, b) => a.order_index - b.order_index),
     [houses],
   );
-  const delivered = useMemo(
-    () =>
-      houses
-        .filter((h) => h.delivered)
-        .sort(
-          (a, b) =>
-            new Date(b.delivered_at || "").getTime() -
-            new Date(a.delivered_at || "").getTime(),
-        ),
-    [houses],
-  );
-  // sum quantity สำหรับ undelivered (planned)
-  const undeliveredTotal = useMemo(
-    () => undelivered.reduce((sum, h) => sum + (h.quantity || 1), 0),
-    [undelivered],
-  );
-  // sum actual_quantity สำหรับ delivered (ถ้าไม่มีใช้ quantity)
-  const deliveredTotal = useMemo(
-    () =>
-      delivered.reduce(
-        (sum, h) => sum + (h.actual_quantity || h.quantity || 1),
-        0,
-      ),
-    [delivered],
-  );
+
+  const totalHouses = useMemo(() => sortedHouses.length, [sortedHouses]);
+
   const totalPending = useMemo(
     () => pendingDates.reduce((sum, item) => sum + item.count, 0),
     [pendingDates],
   );
+
   const isUsingDefault =
     !currentPosition ||
     (Math.abs(currentPosition.lat - DEFAULT_POSITION.lat) < 0.001 &&
       Math.abs(currentPosition.lng - DEFAULT_POSITION.lng) < 0.001);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
@@ -691,10 +567,10 @@ export default function NavigatePage() {
       </div>
     );
   }
+
   return (
     <>
       <div className="min-h-screen bg-gray-50 pb-32">
-        {/* Header */}
         <div className="sticky top-0 bg-white border-b z-40">
           <div className="max-w-7xl mx-auto px-4 py-5">
             <div className="flex items-center justify-between mb-4">
@@ -702,23 +578,18 @@ export default function NavigatePage() {
                 <h1 className="text-2xl font-bold text-gray-900">
                   นำทางวันนี้
                 </h1>
-                <p className="text-sm text-gray-600">
-                  {activeTab === "undelivered"
-                    ? `มี ${undelivered.length} บ้าน, ${undeliveredTotal} ชิ้น`
-                    : `มี ${delivered.length} บ้าน, ${deliveredTotal} ชิ้น`}
-                </p>
+                <p className="text-sm text-gray-600">มี {totalHouses} บ้าน</p>
                 {totalPending > 0 && (
                   <div className="flex flex-wrap gap-2 mt-1">
                     <button
                       onClick={() => setShowPendingModal(true)}
                       className="text-blue-600 underline font-medium hover:text-blue-800"
                     >
-                      ดึงงานค้างอีก {totalPending} ชิ้น
+                      ดึงงานค้างอีก {totalPending} รายการ
                     </button>
                   </div>
                 )}
               </div>
-              {/* ปุ่มรีเฟรชตำแหน่งสำรอง */}
               <button
                 onClick={forceRefreshLocationAndSort}
                 className="flex items-center gap-2 px-4 py-2 bg-yellow-500 text-white rounded-lg text-sm font-bold"
@@ -737,29 +608,14 @@ export default function NavigatePage() {
                 <MapIcon className="w-5 h-5" /> เส้นทางทั้งหมด
               </button>
               <button
-                onClick={archiveTodayData}
-                className="flex items-center gap-2 px-5 py-3 bg-linear-to-r from-purple-600 to-pink-600 text-white font-bold rounded-xl shadow-md"
+                onClick={clearAllToday}
+                className="flex items-center gap-2 px-5 py-3 bg-linear-to-r from-red-600 to-red-700 text-white font-bold rounded-xl shadow-md"
               >
-                <Save className="w-5 h-5" /> เก็บข้อมูลวันนี้
-              </button>
-            </div>
-            <div className="flex bg-gray-100 rounded-xl p-1 text-sm font-medium text-gray-800">
-              <button
-                onClick={() => setActiveTab("undelivered")}
-                className={`flex-1 py-3 rounded-lg ${activeTab === "undelivered" ? "bg-white shadow-sm" : ""}`}
-              >
-                ยังไม่ส่ง ({undelivered.length} บ้าน, {undeliveredTotal} ชิ้น)
-              </button>
-              <button
-                onClick={() => setActiveTab("delivered")}
-                className={`flex-1 py-3 rounded-lg ${activeTab === "delivered" ? "bg-white shadow-sm" : ""}`}
-              >
-                ส่งแล้ว ({delivered.length} บ้าน, {deliveredTotal} ชิ้น)
+                <Trash2 className="w-5 h-5" /> ล้างทั้งหมด
               </button>
             </div>
           </div>
         </div>
-        {/* แจ้งเตือนใช้ตำแหน่งชั่วคราว */}
         {isUsingDefault && (
           <div className="max-w-7xl mx-auto px-4 mt-4">
             <div className="bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-xl flex justify-between items-center">
@@ -773,9 +629,8 @@ export default function NavigatePage() {
             </div>
           </div>
         )}
-        {/* รายการบ้าน */}
         <div className="max-w-7xl mx-auto px-4 py-6 text-gray-800">
-          {houses.length === 0 ? (
+          {sortedHouses.length === 0 ? (
             <div className="text-center py-16">
               <MapIcon className="w-20 h-20 mx-auto text-blue-600 mb-6" />
               <h2 className="text-2xl font-bold">ยังไม่มีงานวันนี้</h2>
@@ -784,107 +639,86 @@ export default function NavigatePage() {
                   onClick={() => setShowPendingModal(true)}
                   className="mt-6 px-8 py-4 bg-linear-to-r from-blue-600 to-indigo-700 text-white text-xl font-bold rounded-2xl"
                 >
-                  ดึงงานค้าง {totalPending} ชิ้น
+                  ดึงงานค้าง {totalPending} รายการ
                 </button>
               )}
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-              {(activeTab === "undelivered" ? undelivered : delivered).map(
-                (house) => {
-                  const distance =
-                    house.lat && house.lng
-                      ? calculateDistance(
-                          (currentPosition || DEFAULT_POSITION).lat,
-                          (currentPosition || DEFAULT_POSITION).lng,
-                          house.lat,
-                          house.lng,
-                        )
-                      : null;
-                  const plannedQty = house.quantity || 1;
-                  const actualQty = house.actual_quantity || plannedQty; // สำหรับ delivered
-                  const displayQty =
-                    activeTab === "delivered" ? actualQty : plannedQty;
-                  return (
-                    <div
-                      key={house.id}
-                      className="group relative bg-white rounded-2xl shadow-sm hover:shadow-xl border border-gray-200 transition-all overflow-hidden"
-                    >
-                      {/* เปลี่ยนจากเดิมทั้งหมด เป็นอันนี้ */}
-                      <div className="absolute top-3 right-3 z-10">
+              {sortedHouses.map((house) => {
+                const distance =
+                  house.lat && house.lng
+                    ? calculateDistance(
+                        (currentPosition || DEFAULT_POSITION).lat,
+                        (currentPosition || DEFAULT_POSITION).lng,
+                        house.lat,
+                        house.lng,
+                      )
+                    : null;
+                return (
+                  <div
+                    key={house.id}
+                    className="group relative bg-white rounded-2xl shadow-sm hover:shadow-xl border border-gray-200 transition-all overflow-hidden"
+                  >
+                    <div className="absolute top-3 right-3 z-10">
+                      <button
+                        onClick={() => deleteHouse(house.id)}
+                        className="p-2 bg-red-500 text-white rounded-full shadow-lg hover:bg-red-600 active:scale-95 transition-all opacity-90 md:opacity-0 md:group-hover:opacity-100"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    </div>
+                    <div className="p-5">
+                      <div className="flex items-start justify-between mb-3">
+                        <span className="text-2xl font-bold text-indigo-600">
+                          #{house.order_index}
+                        </span>
+                      </div>
+                      <h3 className="font-bold text-gray-900 text-lg">
+                        {house.full_name}
+                      </h3>
+                      <div className="flex items-center gap-2 mt-1">
+                        <p className="text-sm text-gray-600">{house.phone}</p>
                         <button
-                          onClick={() => deleteHouse(house.id)}
-                          className="p-2 bg-red-500 text-white rounded-full shadow-lg hover:bg-red-600 active:scale-95 transition-all opacity-90 md:opacity-0 md:group-hover:opacity-100"
+                          onClick={() => copyPhone(house.phone)}
+                          className="p-1 hover:bg-gray-100 rounded"
+                          title="คัดลอกเบอร์โทร"
                         >
-                          <Trash2 className="w-5 h-5" />
+                          <Copy className="w-4 h-4 text-gray-500" />
                         </button>
                       </div>
-                      <div className="p-5">
-                        <div className="flex items-start justify-between mb-3">
-                          <span className="text-2xl font-bold text-indigo-600">
-                            #{house.order_index}
-                          </span>
-                        </div>
-                        <h3 className="font-bold text-gray-900 text-lg">
-                          {house.full_name}
-                        </h3>
-                        <p className="text-sm text-gray-600">{house.phone}</p>
-                        <p className="text-sm font-medium text-blue-600 mt-1">
-                          จำนวน {displayQty} ชิ้น
-                        </p>
-                        <p className="text-xs text-gray-500 mt-2 line-clamp-2">
-                          {house.address}
-                        </p>
-                        <div className="flex items-center gap-3 mt-4 text-xs text-gray-500">
-                          {distance !== null && (
-                            <span>~ {distance.toFixed(1)} กม.</span>
-                          )}
-                          {house.income && (
-                            <span className="font-bold text-green-600">
-                              {house.income.toLocaleString()} ฿
-                            </span>
-                          )}
-                          {house.delivered && (
-                            <span className="text-xs bg-green-100 text-green-700 px-3 py-1 rounded-full font-medium ml-auto">
-                              ส่งแล้ว
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="px-5 pb-5">
-                        {house.lat && house.lng ? (
-                          <button
-                            onClick={() => openMaps(house.lat!, house.lng!)}
-                            className="w-full py-3 text-sm font-bold text-white bg-linear-to-r from-emerald-600 to-green-600 rounded-xl flex items-center justify-center gap-2"
-                          >
-                            <Navigation className="w-5 h-5" /> นำทาง
-                          </button>
-                        ) : (
-                          <div className="w-full py-3 text-center text-sm font-medium text-gray-500 bg-gray-100 rounded-xl">
-                            ไม่มีพิกัด
-                          </div>
-                        )}
-                        {!house.delivered && (
-                          <button
-                            onClick={() => startMarkDelivered(house.id)}
-                            className="w-full mt-3 py-3 text-sm font-bold text-white bg-linear-to-r from-blue-600 to-indigo-600 rounded-xl"
-                          >
-                            ส่งแล้ว ({plannedQty} ชิ้น)
-                          </button>
-                        )}
-                        {house.delivered && (
-                          <button
-                            onClick={() => startEditDelivered(house.id)}
-                            className="w-full mt-3 py-3 text-sm font-bold text-white bg-linear-to-r from-yellow-500 to-orange-600 rounded-xl flex items-center justify-center gap-2"
-                          >
-                            <Edit3 className="w-4 h-4" /> แก้ไขรายได้/จำนวน
-                          </button>
+                      <p className="text-xs text-gray-500 mt-2 line-clamp-2">
+                        {house.address}
+                      </p>
+                      <div className="flex items-center gap-3 mt-4 text-xs text-gray-500">
+                        {distance !== null && (
+                          <span>~ {distance.toFixed(1)} กม.</span>
                         )}
                       </div>
                     </div>
-                  );
-                },
-              )}
+                    <div className="px-5 pb-5">
+                      {house.lat && house.lng ? (
+                        <button
+                          onClick={() => openMaps(house.lat!, house.lng!)}
+                          className="w-full py-3 text-sm font-bold text-white bg-linear-to-r from-emerald-600 to-green-600 rounded-xl flex items-center justify-center gap-2"
+                        >
+                          <Navigation className="w-5 h-5" /> นำทาง
+                        </button>
+                      ) : (
+                        <div className="w-full py-3 text-center text-sm font-medium text-gray-500 bg-gray-100 rounded-xl">
+                          ไม่มีพิกัด
+                        </div>
+                      )}
+                      <button
+                        onClick={() => markDelivered(house.id)}
+                        className="w-full mt-3 py-3 text-sm font-bold text-white bg-linear-to-r from-blue-600 to-indigo-600 rounded-xl"
+                      >
+                        ส่งแล้ว
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -892,7 +726,6 @@ export default function NavigatePage() {
           id="toast-container"
           className="fixed top-16 right-4 z-50 space-y-3"
         />
-        {/* Modal ตั้งค่าตำแหน่ง */}
         {showManualModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl p-6 max-w-sm w-full text-gray-800">
@@ -939,7 +772,6 @@ export default function NavigatePage() {
             </div>
           </div>
         )}
-        {/* Modal ดึงงานค้าง */}
         {showPendingModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl p-6 max-w-md w-full max-h-96 overflow-y-auto text-gray-800">
@@ -975,7 +807,7 @@ export default function NavigatePage() {
                         {formatThaiShortDate(pd.original_date)}
                       </p>
                       <p className="text-sm text-gray-600">
-                        มีจำนวน {pd.count} ชิ้น
+                        มี {pd.count} รายการ
                       </p>
                     </div>
                     <div className="flex gap-4">
@@ -987,7 +819,7 @@ export default function NavigatePage() {
                       </button>
                       <button
                         onClick={() => loadPendingAndResort(pd.original_date)}
-                        className="text-blue-600 underline font-medium hover:text-red-800"
+                        className="text-blue-600 underline font-medium hover:text-blue-800"
                       >
                         ดึงมาใช้
                       </button>
@@ -995,100 +827,6 @@ export default function NavigatePage() {
                   </div>
                 ))
               )}
-            </div>
-          </div>
-        )}
-        {/* Modal บันทึกส่งแล้ว (mark delivered) */}
-        {showMarkDeliveredModal && tempHouseId && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl p-6 max-w-sm w-full text-gray-800">
-              <div className="flex justify-between items-center mb-5">
-                <h2 className="text-xl font-bold">บันทึกการส่ง</h2>
-                <button
-                  onClick={() => setShowMarkDeliveredModal(false)}
-                  className="p-1 hover:bg-gray-100 rounded"
-                >
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
-              <input
-                type="text"
-                placeholder="จำนวนชิ้นที่ส่งสำเร็จ *บังคับ"
-                value={tempActualQuantity}
-                onChange={(e) => setTempActualQuantity(e.target.value)}
-                pattern="[0-9]*"
-                inputMode="numeric"
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl mb-4 focus:border-blue-500 focus:ring focus:ring-blue-200"
-                autoFocus
-              />
-              <input
-                type="number"
-                placeholder="รายได้ (บาท)"
-                value={tempIncome}
-                onChange={(e) => setTempIncome(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl mb-4 focus:border-blue-500 focus:ring focus:ring-blue-200"
-              />
-              <textarea
-                placeholder="หมายเหตุ (ไม่บังคับ)"
-                value={tempNotes}
-                onChange={(e) => setTempNotes(e.target.value)}
-                rows={3}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl resize-none focus:border-blue-500 focus:ring focus:ring-blue-200 mb-6"
-              />
-              <button
-                onClick={confirmMarkDelivered}
-                disabled={(parseInt(tempActualQuantity) || 0) < 1}
-                className="w-full py-3.5 bg-linear-to-r from-emerald-600 to-green-600 text-white rounded-xl font-bold hover:from-emerald-700 hover:to-green-600 disabled:opacity-50 transition"
-              >
-                ยืนยันส่งแล้ว
-              </button>
-            </div>
-          </div>
-        )}
-        {/* ใหม่: Modal แก้ไขการส่ง */}
-        {showEditDeliveredModal && tempEditHouseId && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl p-6 max-w-sm w-full text-gray-800">
-              <div className="flex justify-between items-center mb-5">
-                <h2 className="text-xl font-bold">แก้ไขข้อมูลการส่ง</h2>
-                <button
-                  onClick={() => setShowEditDeliveredModal(false)}
-                  className="p-1 hover:bg-gray-100 rounded"
-                >
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
-              <input
-                type="text"
-                placeholder="จำนวนชิ้นที่ส่งสำเร็จ *บังคับ"
-                value={tempEditActualQuantity}
-                onChange={(e) => setTempEditActualQuantity(e.target.value)}
-                pattern="[0-9]*"
-                inputMode="numeric"
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl mb-4 focus:border-blue-500 focus:ring focus:ring-blue-200"
-                autoFocus
-              />
-              <input
-                type="number"
-                placeholder="รายได้ (บาท)"
-                value={tempEditIncome}
-                onChange={(e) => setTempEditIncome(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl mb-4 focus:border-blue-500 focus:ring focus:ring-blue-200"
-              />
-              <textarea
-                placeholder="หมายเหตุ (ไม่บังคับ)"
-                value={tempEditNotes}
-                onChange={(e) => setTempEditNotes(e.target.value)}
-                rows={3}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl resize-none focus:border-blue-500 focus:ring focus:ring-blue-200 mb-6"
-              />
-              <button
-                onClick={confirmEditDelivered}
-                disabled={(parseInt(tempEditActualQuantity) || 0) < 1}
-                className="w-full py-3.5 bg-linear-to-r from-yellow-500 to-orange-600 text-white rounded-xl font-bold hover:from-yellow-600 hover:to-orange-700 disabled:opacity-50 transition"
-              >
-                ยืนยันแก้ไข
-              </button>
             </div>
           </div>
         )}
