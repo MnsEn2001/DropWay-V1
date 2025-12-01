@@ -9,9 +9,11 @@ import {
   X,
   Trash2,
   Route as MapIcon,
-  Copy, // ใหม่: สำหรับคัดลอก
+  Copy, // สำหรับคัดลอก
+  Search, // สำหรับไอคอนค้นหา
+  Flag, // สำหรับไอคอนจุดเริ่มต้น
+  ExternalLink, // สำหรับไอคอนตรวจสอบแผนที่
 } from "lucide-react";
-
 interface House {
   id: string;
   user_id: string;
@@ -24,9 +26,7 @@ interface House {
   created_at: string;
   updated_at: string;
 }
-
 const DEFAULT_POSITION = { lat: 16.8833, lng: 99.125 };
-
 function vincentyDistance(
   φ1: number,
   λ1: number,
@@ -82,7 +82,6 @@ function vincentyDistance(
             (-3 + 4 * cos2σₘ * cos2σₘ)));
   return (b * A * (σ - Δσ)) / 1000;
 }
-
 function formatThaiShortDate(original_date: string): string {
   const date = new Date(original_date);
   const day = date.getDate().toString().padStart(2, "0");
@@ -90,7 +89,6 @@ function formatThaiShortDate(original_date: string): string {
   const year = (date.getFullYear() + 543).toString();
   return `${day}/${month}/${year}`;
 }
-
 export default function NavigatePage() {
   const [houses, setHouses] = useState<House[]>([]);
   const [pendingDates, setPendingDates] = useState<
@@ -100,17 +98,44 @@ export default function NavigatePage() {
     lat: number;
     lng: number;
   } | null>(null);
+  const [useManualCurrent, setUseManualCurrent] = useState(false); // Flag เพื่อ persist manual current จนกว่าจะรีเฟรช
+  const [startPosition, setStartPosition] = useState<{
+    // จุดเริ่มต้นสำหรับนำทาง
+    lat: number;
+    lng: number;
+    name?: string; // เพิ่มชื่อ optional จาก SQL
+  } | null>(null);
   const [sorting, setSorting] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState(""); // สำหรับค้นหา
   const [showManualModal, setShowManualModal] = useState(false);
+  const [showStartModal, setShowStartModal] = useState(false); // Modal สำหรับจุดเริ่มต้น
   const [showPendingModal, setShowPendingModal] = useState(false);
   const [manualCoordInput, setManualCoordInput] = useState("");
+  const [startCoordInput, setStartCoordInput] = useState(""); // Input สำหรับจุดเริ่มต้น
+  const [startNameInput, setStartNameInput] = useState(""); // ชื่อจุดเริ่มต้น (optional)
   const [detectedLat, setDetectedLat] = useState<number | null>(null);
   const [detectedLng, setDetectedLng] = useState<number | null>(null);
+  const [detectedStartLat, setDetectedStartLat] = useState<number | null>(null);
+  const [detectedStartLng, setDetectedStartLng] = useState<number | null>(null);
   const shouldResortRef = useRef(false);
   const isSortingRef = useRef(false);
   const watchIdRef = useRef<number | null>(null);
-
+  const houseRefs = useRef<(HTMLDivElement | null)[]>([]); // Refs สำหรับ scroll to house
+  // ย้าย sortedHouses และ totalHouses ขึ้นมาที่นี่ เพื่อให้ access ได้ก่อน useCallback
+  const sortedHouses = useMemo(
+    () => houses.sort((a, b) => a.order_index - b.order_index),
+    [houses],
+  );
+  const totalHouses = useMemo(() => sortedHouses.length, [sortedHouses]);
+  const totalPending = useMemo(
+    () => pendingDates.reduce((sum, item) => sum + item.count, 0),
+    [pendingDates],
+  );
+  const isUsingDefault =
+    !currentPosition ||
+    (Math.abs(currentPosition.lat - DEFAULT_POSITION.lat) < 0.001 &&
+      Math.abs(currentPosition.lng - DEFAULT_POSITION.lng) < 0.001);
   const addToast = (
     message: string,
     type: "success" | "error" | "info" = "info",
@@ -131,8 +156,7 @@ export default function NavigatePage() {
     container.appendChild(toast);
     setTimeout(() => toast.remove(), 3500);
   };
-
-  // ใหม่: คัดลอกเบอร์โทร
+  // คัดลอกเบอร์โทร
   const copyPhone = async (phone: string) => {
     try {
       await navigator.clipboard.writeText(phone);
@@ -141,7 +165,6 @@ export default function NavigatePage() {
       addToast("คัดลอกไม่สำเร็จ", "error");
     }
   };
-
   const getCurrentPosition = () =>
     new Promise<{ lat: number; lng: number }>((resolve, reject) => {
       if (!navigator.geolocation)
@@ -153,30 +176,158 @@ export default function NavigatePage() {
         { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 },
       );
     });
-
-  const detectLocation = async () => {
+  const detectLocation = async (isForStart = false) => {
+    // รองรับ both manual และ start
     try {
       const pos = await getCurrentPosition();
-      setDetectedLat(pos.lat);
-      setDetectedLng(pos.lng);
-      setManualCoordInput(`${pos.lat},${pos.lng}`);
+      if (isForStart) {
+        setDetectedStartLat(pos.lat);
+        setDetectedStartLng(pos.lng);
+        setStartCoordInput(`${pos.lat},${pos.lng}`);
+      } else {
+        setDetectedLat(pos.lat);
+        setDetectedLng(pos.lng);
+        setManualCoordInput(`${pos.lat},${pos.lng}`);
+      }
       addToast("ตรวจจับตำแหน่งสำเร็จ", "success");
     } catch {
       addToast("ไม่สามารถหาตำแหน่งได้", "error");
     }
   };
-
+  // Validate พิกัด (lat: -90 to 90, lng: -180 to 180)
+  const validateCoords = (lat: number, lng: number): boolean => {
+    return lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+  };
   const setManualPosition = () => {
-    if (!detectedLat || !detectedLng)
-      return addToast("พิกัดไม่ถูกต้อง", "error");
+    if (
+      !detectedLat ||
+      !detectedLng ||
+      !validateCoords(detectedLat, detectedLng)
+    )
+      return addToast("พิกัดไม่ถูกต้อง (เช็ค lat/lng)", "error");
     setCurrentPosition({ lat: detectedLat, lng: detectedLng });
+    setUseManualCurrent(true); // Persist manual จนกว่าจะรีเฟรช
     setShowManualModal(false);
-    addToast("ตั้งค่าตำแหน่งแล้ว → กำลังเรียงใหม่...", "success");
+    addToast(
+      "ตั้งค่าตำแหน่ง manual แล้ว → กำลังเรียงใหม่... (กดรีเฟรชเพื่อกลับไป GPS)",
+      "success",
+    );
     shouldResortRef.current = true;
   };
-
+  // ตั้งจุดเริ่มต้น (แก้ชื่อฟังก์ชันเพื่อหลีกเลี่ยง conflict)
+  const handleSetStartPosition = async () => {
+    if (
+      !detectedStartLat ||
+      !detectedStartLng ||
+      !validateCoords(detectedStartLat, detectedStartLng)
+    )
+      return addToast("พิกัดไม่ถูกต้อง (เช็ค lat/lng)", "error");
+    // Sync กับฐานข้อมูล (ใช้ RPC จาก SQL) - persist จนกว่าจะล้างเอง
+    try {
+      const { error } = await supabase.rpc("save_start_position", {
+        p_lat: detectedStartLat,
+        p_lng: detectedStartLng,
+        p_name: startNameInput || null,
+      });
+      if (error) throw error;
+    } catch (err: any) {
+      addToast(`บันทึกจุดเริ่มต้นไม่สำเร็จ: ${err.message}`, "error");
+      return;
+    }
+    const name = startNameInput || "ไม่ระบุ";
+    setStartPosition({
+      lat: detectedStartLat,
+      lng: detectedStartLng,
+      name: startNameInput || undefined,
+    });
+    // Backup to localStorage เพื่อ persist เพิ่มเติม
+    localStorage.setItem(
+      "startPosition",
+      JSON.stringify({
+        lat: detectedStartLat,
+        lng: detectedStartLng,
+        name: startNameInput || null,
+      }),
+    );
+    setShowStartModal(false);
+    setStartNameInput(""); // Reset input หลัง toast
+    addToast(
+      `ตั้งจุดเริ่มต้นแล้ว (ชื่อ: ${name}) - persist จนกว่าจะล้าง`,
+      "success",
+    );
+    shouldResortRef.current = true; // Trigger เรียงใหม่ทันทีโดยใช้ startPosition
+  };
+  // โหลด start position จากฐานข้อมูลตอน init (เพิ่ม fallback localStorage)
+  const loadStartPosition = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.rpc("get_start_position");
+      if (error) throw error;
+      let sp = null;
+      if (data && data.length > 0) {
+        sp = data[0];
+        console.log("Loaded start position from DB:", sp);
+      } else {
+        // Fallback to localStorage ถ้า DB ไม่มี
+        const saved = localStorage.getItem("startPosition");
+        if (saved) {
+          sp = JSON.parse(saved);
+          console.log("Loaded start position from localStorage:", sp);
+        }
+      }
+      if (sp) {
+        setStartPosition({
+          lat: sp.lat,
+          lng: sp.lng,
+          name: sp.name || undefined,
+        });
+        shouldResortRef.current = true; // Trigger เรียงใหม่ถ้ามี startPosition
+      } else {
+        console.log("No start position found (DB or localStorage)");
+      }
+    } catch (err: any) {
+      console.log("Load start position error (DB):", err);
+      // Fallback to localStorage on error
+      const saved = localStorage.getItem("startPosition");
+      if (saved) {
+        const sp = JSON.parse(saved);
+        setStartPosition({
+          lat: sp.lat,
+          lng: sp.lng,
+          name: sp.name || undefined,
+        });
+        shouldResortRef.current = true;
+        console.log("Fallback loaded start position from localStorage:", sp);
+      }
+    }
+  }, []);
+  // ล้างจุดเริ่มต้น
+  const clearStartPosition = async () => {
+    // Sync กับฐานข้อมูล - ล้าง persist
+    try {
+      const { error } = await supabase.rpc("clear_start_position");
+      if (error) throw error;
+    } catch (err: any) {
+      addToast(`ล้างจุดเริ่มต้นไม่สำเร็จ: ${err.message}`, "error");
+      return;
+    }
+    // ล้าง localStorage ด้วย
+    localStorage.removeItem("startPosition");
+    setStartPosition(null);
+    setDetectedStartLat(null);
+    setDetectedStartLng(null);
+    setStartCoordInput("");
+    setStartNameInput("");
+    addToast("ล้างจุดเริ่มต้นแล้ว - กลับไปใช้ currentPosition ปกติ", "success");
+    shouldResortRef.current = true; // Trigger เรียงใหม่โดย fallback ไป currentPosition
+  };
+  // ตรวจสอบพิกัดบน Google Maps (คล้าย HousesPage)
+  const verifyOnMaps = (lat: number, lng: number) => {
+    window.open(
+      `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`,
+      "_blank",
+    );
+  };
   const distanceCache = useMemo(() => new Map<string, number>(), []);
-
   const calculateDistance = useCallback(
     (lat1: number, lng1: number, lat2: number, lng2: number) => {
       const key = `${lat1.toFixed(6)},${lng1.toFixed(6)},${lat2.toFixed(6)},${lng2.toFixed(6)}`;
@@ -187,7 +338,6 @@ export default function NavigatePage() {
     },
     [distanceCache],
   );
-
   const clearAllPending = async () => {
     if (!confirm("ล้างงานค้างทั้งหมดจริงหรือ? (ไม่สามารถกู้คืนได้)")) return;
     const {
@@ -206,7 +356,6 @@ export default function NavigatePage() {
       addToast(`ล้างไม่สำเร็จ: ${err.message || "Unknown"}`, "error");
     }
   };
-
   const clearPendingForDate = async (original_date: string) => {
     if (
       !confirm(
@@ -234,8 +383,7 @@ export default function NavigatePage() {
       addToast(`ล้างไม่สำเร็จ: ${err.message || "Unknown"}`, "error");
     }
   };
-
-  // ใหม่: ล้างงานวันนี้ทั้งหมด
+  // ล้างงานวันนี้ทั้งหมด
   const clearAllToday = async () => {
     if (!confirm("ล้างงานวันนี้ทั้งหมดจริงหรือ? (ไม่สามารถกู้คืนได้)")) return;
     const {
@@ -254,7 +402,6 @@ export default function NavigatePage() {
       addToast(`ล้างไม่สำเร็จ: ${err.message || "Unknown"}`, "error");
     }
   };
-
   const refreshData = useCallback(async () => {
     const {
       data: { user },
@@ -332,58 +479,87 @@ export default function NavigatePage() {
     } catch {}
     shouldResortRef.current = true;
   }, []);
-
   const reSortHouses = useCallback(async () => {
-    if (!currentPosition || houses.length === 0 || isSortingRef.current) return;
+    if (
+      (!startPosition && !currentPosition) ||
+      houses.length === 0 ||
+      isSortingRef.current
+    )
+      return; // Skip ถ้าไม่มี origin
     setSorting(true);
     isSortingRef.current = true;
-    const pos = currentPosition;
+    // ใช้ startPosition เป็นหลัก ถ้ามี มิเช่นนั้น currentPosition
+    const origin = startPosition || currentPosition || DEFAULT_POSITION;
     const withCoords = houses.filter((h) => h.lat && h.lng);
     const withoutCoords = houses.filter((h) => !h.lat || !h.lng);
     const sortedWith = withCoords
       .map((h) => ({
         ...h,
-        dist: calculateDistance(pos.lat, pos.lng, h.lat!, h.lng!),
+        dist: calculateDistance(origin.lat, origin.lng, h.lat!, h.lng!),
       }))
       .sort((a, b) => a.dist - b.dist)
       .map((h, i) => ({ ...h, order_index: i + 1 }));
     const sortedWithout = withoutCoords
       .sort((a, b) => a.order_index - b.order_index)
       .map((h, i) => ({ ...h, order_index: sortedWith.length + i + 1 }));
-    const sortedHouses = [...sortedWith, ...sortedWithout];
+    const sortedHousesLocal = [...sortedWith, ...sortedWithout];
     try {
       await Promise.all(
-        sortedHouses.map((h) =>
+        sortedHousesLocal.map((h) =>
           supabase
             .from("today_houses")
             .update({ order_index: h.order_index })
             .eq("id", h.id),
         ),
       );
-      setHouses(sortedHouses);
+      setHouses(sortedHousesLocal);
     } catch (err: any) {
       addToast(`เรียงลำดับไม่สำเร็จ: ${err.message || "Unknown"}`, "error");
     } finally {
       setSorting(false);
       isSortingRef.current = false;
     }
-  }, [currentPosition, houses, calculateDistance]);
-
+  }, [startPosition, currentPosition, houses, calculateDistance]);
+  // Handle search และ scroll (ตอนนี้ sortedHouses มี define แล้ว)
+  const handleSearch = useCallback(
+    (query: string) => {
+      setSearchQuery(query);
+      if (query.trim()) {
+        const lowerQuery = query.toLowerCase();
+        const matchedHouse = sortedHouses.find(
+          (h) =>
+            h.full_name.toLowerCase().includes(lowerQuery) ||
+            h.phone.includes(query) ||
+            h.address.toLowerCase().includes(lowerQuery),
+        );
+        if (matchedHouse) {
+          const index = sortedHouses.findIndex((h) => h.id === matchedHouse.id);
+          if (index !== -1 && houseRefs.current[index]) {
+            houseRefs.current[index]?.scrollIntoView({
+              behavior: "smooth",
+              block: "center",
+            });
+          }
+        } else {
+          addToast("ไม่พบรายการที่ค้นหา", "info");
+          setSearchQuery(""); // Clear ถ้าไม่พบ
+        }
+      }
+    },
+    [sortedHouses],
+  );
   const openFullRouteOnMaps = useCallback(async () => {
-    if (!currentPosition) return addToast("ยังไม่มีตำแหน่งปัจจุบัน", "error");
+    if (!startPosition && !currentPosition)
+      return addToast("ยังไม่มีตำแหน่งเริ่มต้น", "error");
     await refreshData();
     const validHouses = houses.filter((h) => h.lat && h.lng);
     if (validHouses.length === 0)
       return addToast("ไม่มีจุดหมายที่มีพิกัด", "error");
+    const origin = startPosition || currentPosition || DEFAULT_POSITION; // ใช้ start ถ้ามี
     const sorted = validHouses
       .map((h) => ({
         ...h,
-        dist: calculateDistance(
-          currentPosition.lat,
-          currentPosition.lng,
-          h.lat!,
-          h.lng!,
-        ),
+        dist: calculateDistance(origin.lat, origin.lng, h.lat!, h.lng!),
       }))
       .sort((a, b) => a.dist - b.dist)
       .map((h, i) => ({ ...h, order_index: i + 1 }));
@@ -401,14 +577,13 @@ export default function NavigatePage() {
       );
     } catch {}
     const points = [
-      `${currentPosition.lat},${currentPosition.lng}`,
+      `${origin.lat},${origin.lng}`, // origin จาก start หรือ current
       ...sorted.map((h) => `${h.lat},${h.lng}`),
     ];
     const url = `https://www.google.com/maps/dir/${points.map(encodeURIComponent).join("/")}`;
     addToast(`เปิดเส้นทางแล้ว! ${sorted.length} บ้าน`, "success");
     window.open(url, "_blank");
-  }, [currentPosition, houses, calculateDistance, refreshData]);
-
+  }, [startPosition, currentPosition, houses, calculateDistance, refreshData]);
   const loadPendingAndResort = useCallback(
     async (original_date: string) => {
       try {
@@ -426,8 +601,7 @@ export default function NavigatePage() {
     },
     [refreshData],
   );
-
-  // ใหม่: Mark delivered = DELETE
+  // Mark delivered = DELETE
   const markDelivered = async (id: string) => {
     if (!confirm("ยืนยันส่งแล้ว? (จะลบออกจากรายการ)")) return;
     try {
@@ -443,7 +617,6 @@ export default function NavigatePage() {
       addToast(`เกิดข้อผิดพลาด: ${err.message || "Unknown"}`, "error");
     }
   };
-
   const deleteHouse = async (id: string) => {
     if (!confirm("ลบรายการนี้จริงหรือ?")) return;
     try {
@@ -459,37 +632,39 @@ export default function NavigatePage() {
       addToast(`ลบไม่สำเร็จ: ${err.message || "Unknown"}`, "error");
     }
   };
-
   const openMaps = useCallback(
     (lat: number, lng: number) => {
-      const origin = currentPosition || DEFAULT_POSITION;
+      const origin = startPosition || currentPosition || DEFAULT_POSITION; // ใช้ start ถ้ามี
       window.open(
         `https://www.google.com/maps/dir/?api=1&origin=${origin.lat},${origin.lng}&destination=${lat},${lng}&travelmode=driving`,
         "_blank",
       );
     },
-    [currentPosition],
+    [startPosition, currentPosition],
   );
-
   const forceRefreshLocationAndSort = async () => {
     setSorting(true);
     try {
       const pos = await getCurrentPosition();
       setCurrentPosition(pos);
+      setUseManualCurrent(false); // Reset manual mode กลับไป GPS ปกติ
       shouldResortRef.current = true;
-      addToast("รีเฟรชตำแหน่ง + เรียงใหม่แล้ว!", "success");
+      addToast("รีเฟรชตำแหน่ง GPS + เรียงใหม่แล้ว! (manual reset)", "success");
     } catch {
       addToast("รีเฟรชตำแหน่งไม่สำเร็จ", "error");
     } finally {
       setSorting(false);
     }
   };
-
   useEffect(() => {
     let isMounted = true;
     const init = async () => {
       setLoading(true);
+      setUseManualCurrent(false); // เริ่มต้นใช้ GPS ปกติ
       await refreshData();
+      // โหลด start position ก่อน เพื่อให้ persist ทันที
+      await loadStartPosition();
+      // แล้วค่อย set currentPosition จาก GPS (ถ้าไม่มี start จะ fallback ไป current)
       try {
         const pos = await getCurrentPosition();
         if (isMounted) setCurrentPosition(pos);
@@ -507,8 +682,11 @@ export default function NavigatePage() {
             lat: pos.coords.latitude,
             lng: pos.coords.longitude,
           };
-          setCurrentPosition(newPos);
-          shouldResortRef.current = true;
+          if (!useManualCurrent) {
+            // Skip ถ้า manual mode
+            setCurrentPosition(newPos);
+            shouldResortRef.current = true;
+          }
         },
         (err) => console.log("watchPosition error:", err),
         { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 },
@@ -517,8 +695,11 @@ export default function NavigatePage() {
     const interval = setInterval(async () => {
       try {
         const pos = await getCurrentPosition();
-        setCurrentPosition(pos);
-        shouldResortRef.current = true;
+        if (!useManualCurrent) {
+          // Skip ถ้า manual mode
+          setCurrentPosition(pos);
+          shouldResortRef.current = true;
+        }
       } catch {}
     }, 30000);
     return () => {
@@ -527,12 +708,11 @@ export default function NavigatePage() {
         navigator.geolocation.clearWatch(watchIdRef.current);
       clearInterval(interval);
     };
-  }, [refreshData]);
-
+  }, [refreshData, loadStartPosition, useManualCurrent]);
   useEffect(() => {
     if (
       shouldResortRef.current &&
-      currentPosition &&
+      (startPosition || currentPosition) &&
       houses.length > 0 &&
       !loading &&
       !sorting
@@ -541,25 +721,14 @@ export default function NavigatePage() {
       const timer = setTimeout(reSortHouses, 500);
       return () => clearTimeout(timer);
     }
-  }, [currentPosition, houses.length, loading, sorting, reSortHouses]);
-
-  const sortedHouses = useMemo(
-    () => houses.sort((a, b) => a.order_index - b.order_index),
-    [houses],
-  );
-
-  const totalHouses = useMemo(() => sortedHouses.length, [sortedHouses]);
-
-  const totalPending = useMemo(
-    () => pendingDates.reduce((sum, item) => sum + item.count, 0),
-    [pendingDates],
-  );
-
-  const isUsingDefault =
-    !currentPosition ||
-    (Math.abs(currentPosition.lat - DEFAULT_POSITION.lat) < 0.001 &&
-      Math.abs(currentPosition.lng - DEFAULT_POSITION.lng) < 0.001);
-
+  }, [
+    startPosition,
+    currentPosition,
+    houses.length,
+    loading,
+    sorting,
+    reSortHouses,
+  ]);
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
@@ -567,7 +736,6 @@ export default function NavigatePage() {
       </div>
     );
   }
-
   return (
     <>
       <div className="min-h-screen bg-gray-50 pb-32">
@@ -589,34 +757,67 @@ export default function NavigatePage() {
                     </button>
                   </div>
                 )}
+                {startPosition && (
+                  <p className="text-sm text-green-600 mt-1">
+                    เริ่มต้นจาก: จุดที่ตั้งเองแล้ว
+                  </p>
+                )}
+                {useManualCurrent && !startPosition && (
+                  <p className="text-sm text-blue-600 mt-1">
+                    ใช้พิกัด manual (กดรีเฟรชเพื่อกลับ GPS)
+                  </p>
+                )}
               </div>
-              <button
-                onClick={forceRefreshLocationAndSort}
-                className="flex items-center gap-2 px-4 py-2 bg-yellow-500 text-white rounded-lg text-sm font-bold"
-              >
-                <RefreshCw
-                  className={`w-4 h-4 ${sorting ? "animate-spin" : ""}`}
-                />
-                รีเฟรชตำแหน่ง
-              </button>
+              <div className="flex items-center gap-2">
+                {/* ปุ่มตั้งจุดเริ่มต้น */}
+                <button
+                  onClick={() => setShowStartModal(true)}
+                  className="flex items-center gap-2 px-3 py-2 bg-purple-500 text-white rounded-lg text-sm font-medium"
+                  title="ตั้งจุดเริ่มต้นนำทาง"
+                >
+                  <Flag className="w-4 h-4" />
+                  {startPosition ? "แก้" : "เพิ่ม"}จุดเริ่ม
+                </button>
+                <button
+                  onClick={forceRefreshLocationAndSort}
+                  className="flex items-center gap-2 px-4 py-2 bg-yellow-500 text-white rounded-lg text-sm font-bold"
+                >
+                  <RefreshCw
+                    className={`w-4 h-4 ${sorting ? "animate-spin" : ""}`}
+                  />
+                  รีเฟรช
+                </button>
+              </div>
             </div>
-            <div className="flex flex-wrap gap-3 mb-4">
+            {/* ช่องค้นหา */}
+            <div className="relative mb-4 text-gray-800">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="ค้นหาชื่อ, เบอร์, ที่อยู่... (เลื่อนไปหาอัตโนมัติ)"
+                value={searchQuery}
+                onChange={(e) => handleSearch(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:border-blue-500 focus:ring-1 focus:ring-blue-200"
+              />
+            </div>
+
+            <div className="flex flex-wrap gap-3 mb-4 justify-between items-center">
+              {/* เส้นทางทั้งหมด เหมือนเดิม */}
               <button
                 onClick={openFullRouteOnMaps}
                 className="flex items-center gap-2 px-5 py-3 bg-linear-to-r from-orange-600 to-red-600 text-white font-bold rounded-xl shadow-md"
               >
                 <MapIcon className="w-5 h-5" /> เส้นทางทั้งหมด
               </button>
-              <button
-                onClick={clearAllToday}
-                className="flex items-center gap-2 px-5 py-3 bg-linear-to-r from-red-600 to-red-700 text-white font-bold rounded-xl shadow-md"
-              >
-                <Trash2 className="w-5 h-5" /> ล้างทั้งหมด
+
+              {/* ไอคอนล้างทั้งหมด อยู่ขวาสุด ไม่มีพื้นหลัง */}
+              <button onClick={clearAllToday} className="p-2">
+                <Trash2 className="w-6 h-6 text-black" />
               </button>
             </div>
           </div>
         </div>
-        {isUsingDefault && (
+        {isUsingDefault && !startPosition && (
           <div className="max-w-7xl mx-auto px-4 mt-4">
             <div className="bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-xl flex justify-between items-center">
               <span>กำลังใช้ตำแหน่งชั่วคราว (กำลังรอ GPS)</span>
@@ -645,12 +846,15 @@ export default function NavigatePage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-              {sortedHouses.map((house) => {
+              {sortedHouses.map((house, index) => {
+                // ใช้ origin สำหรับแสดงระยะทาง (startPosition ถ้ามี)
+                const origin =
+                  startPosition || currentPosition || DEFAULT_POSITION;
                 const distance =
                   house.lat && house.lng
                     ? calculateDistance(
-                        (currentPosition || DEFAULT_POSITION).lat,
-                        (currentPosition || DEFAULT_POSITION).lng,
+                        origin.lat,
+                        origin.lng,
                         house.lat,
                         house.lng,
                       )
@@ -658,12 +862,15 @@ export default function NavigatePage() {
                 return (
                   <div
                     key={house.id}
+                    ref={(el) => {
+                      houseRefs.current[index] = el;
+                    }} // แก้ไขตรงนี้: ใช้ block statement ไม่ return el
                     className="group relative bg-white rounded-2xl shadow-sm hover:shadow-xl border border-gray-200 transition-all overflow-hidden"
                   >
                     <div className="absolute top-3 right-3 z-10">
                       <button
                         onClick={() => deleteHouse(house.id)}
-                        className="p-2 bg-red-500 text-white rounded-full shadow-lg hover:bg-red-600 active:scale-95 transition-all opacity-90 md:opacity-0 md:group-hover:opacity-100"
+                        className="text-gray-900 rounded-full shadow-lg hover:bg-red-600 active:scale-95 transition-all opacity-90 md:opacity-0 md:group-hover:opacity-100"
                       >
                         <Trash2 className="w-5 h-5" />
                       </button>
@@ -726,6 +933,7 @@ export default function NavigatePage() {
           id="toast-container"
           className="fixed top-16 right-4 z-50 space-y-3"
         />
+        {/* Modal ตั้งค่าตำแหน่งปัจจุบัน (เดิม + ใหม่: ปุ่มตรวจสอบแผนที่) */}
         {showManualModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl p-6 max-w-sm w-full text-gray-800">
@@ -739,7 +947,7 @@ export default function NavigatePage() {
                 </button>
               </div>
               <button
-                onClick={detectLocation}
+                onClick={() => detectLocation(false)}
                 className="w-full flex items-center justify-center gap-2 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 mb-4 transition"
               >
                 <MapPin className="w-5 h-5" /> ตรวจจับ GPS อัตโนมัติ
@@ -754,14 +962,32 @@ export default function NavigatePage() {
                   if (parts.length === 2) {
                     const lat = parseFloat(parts[0].trim());
                     const lng = parseFloat(parts[1].trim());
-                    if (!isNaN(lat) && !isNaN(lng)) {
+                    if (
+                      !isNaN(lat) &&
+                      !isNaN(lng) &&
+                      validateCoords(lat, lng)
+                    ) {
                       setDetectedLat(lat);
                       setDetectedLng(lng);
+                    } else {
+                      setDetectedLat(null);
+                      setDetectedLng(null);
                     }
                   }
                 }}
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl text-center font-mono focus:border-blue-500 focus:ring-1 focus:ring-blue-200"
               />
+              {/* ปุ่มตรวจสอบพิกัดบน Google Maps */}
+              {detectedLat && detectedLng && (
+                <div className="text-center mt-2 mb-4">
+                  <button
+                    onClick={() => verifyOnMaps(detectedLat, detectedLng)}
+                    className="text-blue-600 text-sm underline flex items-center gap-1 mx-auto hover:text-blue-800 transition"
+                  >
+                    <ExternalLink className="w-4 h-4" /> ตรวจสอบบน Google Maps
+                  </button>
+                </div>
+              )}
               <button
                 onClick={setManualPosition}
                 disabled={!detectedLat || !detectedLng}
@@ -769,6 +995,81 @@ export default function NavigatePage() {
               >
                 บันทึกและเรียงใหม่
               </button>
+            </div>
+          </div>
+        )}
+        {/* Modal ตั้งจุดเริ่มต้น (ปรับ: เพิ่ม input ชื่อ + RPC sync) */}
+        {showStartModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl p-6 max-w-sm w-full text-gray-800">
+              <div className="flex justify-between items-center mb-5">
+                <h2 className="text-xl font-bold">ตั้งจุดเริ่มต้นนำทาง</h2>
+                <button
+                  onClick={() => setShowStartModal(false)}
+                  className="p-1 hover:bg-gray-100 rounded"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              <button
+                onClick={() => detectLocation(true)}
+                className="w-full flex items-center justify-center gap-2 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 mb-4 transition"
+              >
+                <MapPin className="w-5 h-5" /> ตรวจจับ GPS อัตโนมัติ
+              </button>
+              <input
+                type="text"
+                placeholder="16.8833,99.125"
+                value={startCoordInput}
+                onChange={(e) => {
+                  setStartCoordInput(e.target.value);
+                  const parts = e.target.value.split(",");
+                  if (parts.length === 2) {
+                    const lat = parseFloat(parts[0].trim());
+                    const lng = parseFloat(parts[1].trim());
+                    if (
+                      !isNaN(lat) &&
+                      !isNaN(lng) &&
+                      validateCoords(lat, lng)
+                    ) {
+                      setDetectedStartLat(lat);
+                      setDetectedStartLng(lng);
+                    } else {
+                      setDetectedStartLat(null);
+                      setDetectedStartLng(null);
+                    }
+                  }
+                }}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl text-center font-mono focus:border-blue-500 focus:ring-1 focus:ring-blue-200 mb-2"
+              />
+              {/* ปุ่มตรวจสอบพิกัดบน Google Maps */}
+              {detectedStartLat && detectedStartLng && (
+                <div className="text-center mt-2 mb-4">
+                  <button
+                    onClick={() =>
+                      verifyOnMaps(detectedStartLat, detectedStartLng)
+                    }
+                    className="text-blue-600 text-sm underline flex items-center gap-1 mx-auto hover:text-blue-800 transition"
+                  >
+                    <ExternalLink className="w-4 h-4" /> ตรวจสอบบน Google Maps
+                  </button>
+                </div>
+              )}
+              <div className="flex gap-2 mt-4">
+                <button
+                  onClick={handleSetStartPosition}
+                  disabled={!detectedStartLat || !detectedStartLng}
+                  className="flex-1 py-3 bg-linear-to-r from-emerald-600 to-green-600 text-white rounded-xl font-bold hover:from-emerald-700 hover:to-green-600 disabled:opacity-50 transition"
+                >
+                  บันทึก
+                </button>
+                <button
+                  onClick={clearStartPosition}
+                  className="flex-1 py-3 bg-gray-500 text-white rounded-xl font-medium hover:bg-gray-600 transition"
+                >
+                  ล้าง
+                </button>
+              </div>
             </div>
           </div>
         )}

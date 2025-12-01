@@ -19,13 +19,9 @@ import {
   FileSpreadsheet,
   FileText,
   X,
-  Image as ImageIcon,
-  Camera,
-  Edit,
   Copy, // ใหม่: สำหรับคัดลอกเบอร์
 } from "lucide-react";
 import Papa from "papaparse";
-import Tesseract from "tesseract.js";
 
 interface House {
   id: string;
@@ -37,13 +33,6 @@ interface House {
   created_at: string;
 }
 
-interface ParsedHouse {
-  id: string;
-  name: string;
-  phone: string;
-  address: string;
-}
-
 interface Toast {
   id: string;
   message: string;
@@ -53,13 +42,15 @@ interface Toast {
 const ITEMS_PER_PAGE = 20;
 
 export default function HousesPage() {
-  const [activeTab, setActiveTab] = useState<"list" | "csv" | "image">("list");
+  const [activeTab, setActiveTab] = useState<"list" | "csv">("list");
   const [houses, setHouses] = useState<House[]>([]);
   const [search, setSearch] = useState("");
   const [provinceFilter, setProvinceFilter] = useState("");
   const [districtFilter, setDistrictFilter] = useState("");
   const [subdistrictFilter, setSubdistrictFilter] = useState("");
   const [villageFilter, setVillageFilter] = useState("");
+  const [showNoCoords, setShowNoCoords] = useState(false);
+  const [showWithCoords, setShowWithCoords] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [showAdd, setShowAdd] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -78,11 +69,6 @@ export default function HousesPage() {
   const [uploading, setUploading] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [processing, setProcessing] = useState(false);
-  const [parsedHouses, setParsedHouses] = useState<ParsedHouse[]>([]);
-
   const filterModalRef = useRef<HTMLDivElement>(null);
   const addEditModalRef = useRef<HTMLDivElement>(null);
 
@@ -115,14 +101,6 @@ export default function HousesPage() {
     };
     loadHouses();
   }, []);
-
-  useEffect(() => {
-    return () => {
-      if (imagePreview) {
-        URL.revokeObjectURL(imagePreview);
-      }
-    };
-  }, [imagePreview]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -211,6 +189,9 @@ export default function HousesPage() {
         const mooNum = extractMooNumber();
         if (mooNum === null || mooNum !== inputNum) return false;
       }
+      const hasCoords = h.lat && h.lng;
+      if (showNoCoords && hasCoords) return false;
+      if (showWithCoords && !hasCoords) return false;
       return true;
     });
   }, [
@@ -220,6 +201,8 @@ export default function HousesPage() {
     districtFilter,
     subdistrictFilter,
     villageFilter,
+    showNoCoords,
+    showWithCoords,
   ]);
 
   const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
@@ -367,140 +350,6 @@ export default function HousesPage() {
     }
   };
 
-  const parseTextFromImage = (text: string): ParsedHouse[] => {
-    const lines = text
-      .split("\n")
-      .map((l) => l.trim())
-      .filter((l) => l.length > 0);
-    const houses: ParsedHouse[] = [];
-    let i = 0;
-    while (i < lines.length) {
-      const line = lines[i];
-      const nameMatch = line.match(/^(.+?)\s+\*{4}(\d{4})$/);
-      if (nameMatch) {
-        const name = nameMatch[1].trim();
-        const phone = `****${nameMatch[2]}`;
-        i++;
-        let addr = "";
-        let addrLines = 0;
-        while (i < lines.length && addrLines < 3) {
-          const nextLine = lines[i];
-          if (
-            nextLine.match(/^\d{4}-\d{2}-\d{2}/) ||
-            nextLine.match(/PCS|COD|บ|฿|\d+\.\d+/) ||
-            nextLine.length < 5 ||
-            nextLine.match(/^(.+?)\s+\*{4}(\d{4})$/) ||
-            (nextLine.includes("วังเจ้า") &&
-              nextLine.includes("ตาก") &&
-              addr.includes("ตาก"))
-          ) {
-            break;
-          }
-          if (addr) addr += " ";
-          addr += nextLine;
-          i++;
-          addrLines++;
-        }
-        if (name.length > 2 && phone && addr.length > 5) {
-          houses.push({
-            id: `${Date.now()}-${houses.length}`,
-            name,
-            phone,
-            address: addr.trim(),
-          });
-        }
-      } else {
-        i++;
-      }
-    }
-    return houses;
-  };
-
-  const processImage = async () => {
-    if (!imageFile) return;
-    setProcessing(true);
-    try {
-      const {
-        data: { text },
-      } = await Tesseract.recognize(imageFile, "tha+eng", {
-        logger: (m: any) => console.log(m),
-      });
-      const parsed = parseTextFromImage(text);
-      if (parsed.length === 0) {
-        addToast(
-          "ไม่พบข้อมูลบ้านในรูป (ลองอัพรูปชัดๆ หรือ crop เฉพาะส่วนข้อมูลอีกครั้ง)",
-          "error",
-        );
-      } else {
-        setParsedHouses(parsed);
-        addToast(
-          `ดึงข้อมูลสำเร็จ! พบ ${parsed.length} บ้าน (แก้ไขได้ก่อนบันทึก)`,
-          "success",
-        );
-      }
-    } catch (error) {
-      console.error("OCR Error:", error);
-      addToast("ประมวลผลรูปผิดพลาด ลองอัพรูปชัดๆ อีกครั้ง", "error");
-    }
-    setProcessing(false);
-  };
-
-  const updateParsedHouse = (
-    id: string,
-    field: keyof ParsedHouse,
-    value: string,
-  ) => {
-    setParsedHouses((prev) =>
-      prev.map((h) => (h.id === id ? { ...h, [field]: value } : h)),
-    );
-  };
-
-  const removeParsedHouse = (id: string) => {
-    setParsedHouses((prev) => prev.filter((h) => h.id !== id));
-    addToast("ลบรายการนี้แล้ว", "info");
-  };
-
-  const saveParsedHouses = async () => {
-    if (parsedHouses.length === 0) return;
-    setSaving(true);
-    let addedCount = 0;
-    for (const ph of parsedHouses) {
-      if (ph.name.trim() && ph.phone.trim() && ph.address.trim()) {
-        await addToWarehouseIfNew(ph.name, ph.phone, ph.address);
-        addedCount++;
-      } else {
-        addToast(
-          `ข้าม "${ph.name}": ข้อมูลไม่ครบ (ชื่อ/เบอร์/ที่อยู่)`,
-          "info",
-        );
-      }
-    }
-    if (addedCount > 0) {
-      addToast(`เพิ่ม ${addedCount} บ้านใหม่ลงคลังจริง!`, "success");
-      const { data } = await supabase
-        .from("houses")
-        .select("*")
-        .order("created_at", { ascending: false });
-      setHouses((data as House[]) ?? []);
-    } else {
-      addToast("ไม่มีข้อมูลใหม่ที่จะเพิ่ม (ซ้ำหรือไม่ครบทั้งหมด)", "info");
-    }
-    setParsedHouses([]);
-    setImageFile(null);
-    setImagePreview(null);
-    setSaving(false);
-  };
-
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setImageFile(file);
-      const previewUrl = URL.createObjectURL(file);
-      setImagePreview(previewUrl);
-      setParsedHouses([]);
-    }
-  };
-
   const deleteHouse = async (id: string) => {
     if (!confirm("ลบบ้านนี้จริง ๆ นะ? (ทุกคนจะเห็นการเปลี่ยนแปลง)")) return;
     const { error } = await supabase.from("houses").delete().eq("id", id);
@@ -588,6 +437,8 @@ export default function HousesPage() {
     setDistrictFilter("");
     setSubdistrictFilter("");
     setVillageFilter("");
+    setShowNoCoords(false);
+    setShowWithCoords(false);
     setSearch("");
     setCurrentPage(1);
     addToast("ล้างตัวกรองแล้ว", "info");
@@ -712,17 +563,6 @@ export default function HousesPage() {
             <FileSpreadsheet className="w-4 h-4 mx-auto mb-0.5" />
             CSV
           </button>
-          <button
-            onClick={() => setActiveTab("image")}
-            className={`flex-1 py-2.5 font-medium text-xs transition ${
-              activeTab === "image"
-                ? "bg-blue-600 text-white"
-                : "text-gray-600 hover:bg-gray-100"
-            }`}
-          >
-            <ImageIcon className="w-4 h-4 mx-auto mb-0.5" />
-            รูปภาพ
-          </button>
         </div>
         {activeTab === "list" && (
           <>
@@ -746,6 +586,32 @@ export default function HousesPage() {
               >
                 <Filter className="w-4 h-4" /> ตัวกรอง
               </button>
+              <div className="flex items-center gap-3 flex-wrap">
+                <label className="flex items-center gap-1 text-xs text-gray-600 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={showNoCoords}
+                    onChange={(e) => {
+                      setShowNoCoords(e.target.checked);
+                      setCurrentPage(1);
+                    }}
+                    className="w-4 h-4 text-blue-600 rounded"
+                  />
+                  แสดงแค่บ้านที่ยังไม่เพิ่มพิกัด
+                </label>
+                <label className="flex items-center gap-1 text-xs text-gray-600 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={showWithCoords}
+                    onChange={(e) => {
+                      setShowWithCoords(e.target.checked);
+                      setCurrentPage(1);
+                    }}
+                    className="w-4 h-4 text-blue-600 rounded"
+                  />
+                  แสดงแค่บ้านที่เพิ่มพิกัดแล้ว
+                </label>
+              </div>
             </div>
             {filtered.length === 0 ? (
               <div className="text-center py-20">
@@ -827,7 +693,7 @@ export default function HousesPage() {
                   ))}
                 </div>
                 {totalPages > 1 && (
-                  <div className="flex items-center justify-center gap-2 mt-10">
+                  <div className="flex items-center justify-center gap-2 mt-10 text-gray-800">
                     <button
                       onClick={() => goToPage(currentPage - 1)}
                       disabled={currentPage === 1}
@@ -910,120 +776,6 @@ export default function HousesPage() {
                 </button>
               </div>
             </div>
-          </div>
-        )}
-        {activeTab === "image" && (
-          <div className="bg-white rounded-2xl shadow-lg p-5 text-gray-800 space-y-5">
-            <div className="border-2 border-dashed border-gray-300 rounded-2xl p-8 text-center">
-              <Camera className="w-10 h-10 text-gray-400 mx-auto mb-3" />
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleImageUpload}
-                className="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-600 file:text-white hover:file:bg-blue-700"
-              />
-              {imagePreview && (
-                <div className="mt-4">
-                  <img
-                    src={imagePreview}
-                    alt="Preview"
-                    className="max-w-full h-48 object-cover rounded-xl mx-auto"
-                  />
-                  <p className="mt-2 text-sm text-green-600">
-                    รูปที่เลือก: {imageFile?.name}
-                  </p>
-                </div>
-              )}
-            </div>
-            {imageFile && !processing && parsedHouses.length === 0 && (
-              <button
-                onClick={processImage}
-                className="w-full py-3 bg-linear-to-r from-purple-600 to-pink-600 text-white rounded-xl text-sm font-bold hover:from-purple-700 hover:to-pink-700 transition flex items-center justify-center gap-2 mx-auto"
-              >
-                <ImageIcon className="w-4 h-4" /> ประมวลผลรูป (ดึงข้อมูลด้วย
-                OCR)
-              </button>
-            )}
-            {processing && (
-              <div className="text-center py-8">
-                <Loader2 className="w-8 h-8 animate-spin mx-auto mb-3 text-blue-600" />
-                <p className="text-sm text-gray-600">
-                  กำลังอ่านข้อความจากรูป... (อาจใช้เวลา 10-30 วินาที)
-                </p>
-              </div>
-            )}
-            {parsedHouses.length > 0 && (
-              <>
-                <div className="text-center mb-4">
-                  <h3 className="font-bold text-lg">
-                    ข้อมูลที่ดึงจากรูป ({parsedHouses.length} รายการ)
-                  </h3>
-                  <p className="text-sm text-gray-500">
-                    แก้ไขชื่อ/เบอร์/ที่อยู่ได้ ก่อนกดบันทึก
-                  </p>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-96 overflow-y-auto p-2 bg-gray-50 rounded-xl">
-                  {parsedHouses.map((ph, index) => (
-                    <div
-                      key={ph.id}
-                      className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm"
-                    >
-                      <div className="flex justify-between items-start mb-3">
-                        <h4 className="font-semibold text-sm text-gray-800">
-                          บ้านที่ {index + 1}
-                        </h4>
-                        <button
-                          onClick={() => removeParsedHouse(ph.id)}
-                          className="p-1 text-red-500 hover:text-red-700 transition"
-                          title="ลบรายการนี้"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                      <input
-                        type="text"
-                        placeholder="ชื่อ-นามสกุล (เช่น ศริพร ปานสีทอง)"
-                        value={ph.name}
-                        onChange={(e) =>
-                          updateParsedHouse(ph.id, "name", e.target.value)
-                        }
-                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none mb-2"
-                      />
-                      <input
-                        type="text"
-                        placeholder="เบอร์โทร (เช่น ****6180)"
-                        value={ph.phone}
-                        onChange={(e) =>
-                          updateParsedHouse(ph.id, "phone", e.target.value)
-                        }
-                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none mb-2"
-                      />
-                      <textarea
-                        placeholder="ที่อยู่เต็ม (เช่น 221หมู่1 บ้านลาดยาว ...)"
-                        value={ph.address}
-                        onChange={(e) =>
-                          updateParsedHouse(ph.id, "address", e.target.value)
-                        }
-                        rows={3}
-                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none resize-none"
-                      />
-                    </div>
-                  ))}
-                </div>
-                <button
-                  onClick={saveParsedHouses}
-                  disabled={saving || parsedHouses.length === 0}
-                  className="w-full py-3 bg-linear-to-r from-green-600 to-emerald-600 text-white rounded-xl text-sm font-bold hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 transition flex items-center justify-center gap-2"
-                >
-                  {saving ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Plus className="w-4 h-4" />
-                  )}
-                  เพิ่มลงคลังจริง {parsedHouses.length} รายการ
-                </button>
-              </>
-            )}
           </div>
         )}
       </div>
