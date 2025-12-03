@@ -13,7 +13,7 @@ import {
   Search,
   Flag,
   ExternalLink,
-  Filter, // เพิ่มไอคอนกรอง
+  Filter,
 } from "lucide-react";
 
 interface House {
@@ -95,7 +95,6 @@ function formatThaiShortDate(original_date: string): string {
   return `${day}/${month}/${year}`;
 }
 
-// ฟังก์ชันดึงบ้านเลขที่จากที่อยู่
 const extractHouseNumber = (address: string): string => {
   const match = address.match(
     /(?:บ้านเลขที่|เลขที่|ที่\s*)?\s*([\d\/\\-]+)\s*(?:\/\s*\d+)?/i,
@@ -132,12 +131,13 @@ export default function NavigatePage() {
   const [detectedStartLat, setDetectedStartLat] = useState<number | null>(null);
   const [detectedStartLng, setDetectedStartLng] = useState<number | null>(null);
 
-  // === เพิ่มตัวแปรกรองใหม่ ===
+  // ตัวแปรกรองและจัดกลุ่ม
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [houseNumberFilter, setHouseNumberFilter] = useState("");
   const [showNoCoords, setShowNoCoords] = useState(false);
   const [showWithCoords, setShowWithCoords] = useState(false);
   const [groupByHouseNumber, setGroupByHouseNumber] = useState(false);
+  const [groupNearbyHouses, setGroupNearbyHouses] = useState(false); // <--- ใหม่!
 
   const shouldResortRef = useRef(false);
   const isSortingRef = useRef(false);
@@ -148,11 +148,13 @@ export default function NavigatePage() {
     () => houses.sort((a, b) => a.order_index - b.order_index),
     [houses],
   );
+
   const totalHouses = useMemo(() => sortedHouses.length, [sortedHouses]);
   const totalPending = useMemo(
     () => pendingDates.reduce((sum, item) => sum + item.count, 0),
     [pendingDates],
   );
+
   const isUsingDefault =
     !currentPosition ||
     (Math.abs(currentPosition.lat - DEFAULT_POSITION.lat) < 0.001 &&
@@ -339,6 +341,7 @@ export default function NavigatePage() {
   };
 
   const distanceCache = useMemo(() => new Map<string, number>(), []);
+
   const calculateDistance = useCallback(
     (lat1: number, lng1: number, lat2: number, lng2: number) => {
       const key = `${lat1.toFixed(6)},${lng1.toFixed(6)},${lat2.toFixed(6)},${lng2.toFixed(6)}`;
@@ -504,34 +507,78 @@ export default function NavigatePage() {
     const origin = startPosition || currentPosition || DEFAULT_POSITION;
     const withCoords = houses.filter((h) => h.lat && h.lng);
     const withoutCoords = houses.filter((h) => !h.lat || !h.lng);
-    const sortedWith = withCoords
+
+    let sortedWith = withCoords
       .map((h) => ({
         ...h,
         dist: calculateDistance(origin.lat, origin.lng, h.lat!, h.lng!),
       }))
-      .sort((a, b) => a.dist - b.dist)
-      .map((h, i) => ({ ...h, order_index: i + 1 }));
-    const sortedWithout = withoutCoords
-      .sort((a, b) => a.order_index - b.order_index)
-      .map((h, i) => ({ ...h, order_index: sortedWith.length + i + 1 }));
-    const sortedHousesLocal = [...sortedWith, ...sortedWithout];
+      .sort((a, b) => a.dist - b.dist);
+
+    // === จัดกลุ่มบ้านที่อยู่ใกล้กัน (ถ้าเปิดใช้) ===
+    if (groupNearbyHouses && sortedWith.length > 1) {
+      const clusters: (typeof sortedWith)[] = [];
+      const used = new Set<number>();
+      const thresholdKm = 0.5; // 500 เมตร
+
+      for (let i = 0; i < sortedWith.length; i++) {
+        if (used.has(i)) continue;
+        const cluster = [sortedWith[i]];
+        used.add(i);
+
+        for (let j = i + 1; j < sortedWith.length; j++) {
+          if (used.has(j)) continue;
+          const dist = calculateDistance(
+            sortedWith[i].lat!,
+            sortedWith[i].lng!,
+            sortedWith[j].lat!,
+            sortedWith[j].lng!,
+          );
+          if (dist <= thresholdKm) {
+            cluster.push(sortedWith[j]);
+            used.add(j);
+          }
+        }
+        clusters.push(cluster);
+      }
+
+      // เรียงคลัสเตอร์ตามระยะจากจุดเริ่มต้น
+      clusters.sort((a, b) => a[0].dist - b[0].dist);
+
+      // แบนคลัสเตอร์กลับเป็นอาเรย์เดียว
+      sortedWith = clusters.flat();
+    }
+
+    const finalSorted = [
+      ...sortedWith.map((h, i) => ({ ...h, order_index: i + 1 })),
+      ...withoutCoords
+        .sort((a, b) => a.order_index - b.order_index)
+        .map((h, i) => ({ ...h, order_index: sortedWith.length + i + 1 })),
+    ];
+
     try {
       await Promise.all(
-        sortedHousesLocal.map((h) =>
+        finalSorted.map((h) =>
           supabase
             .from("today_houses")
             .update({ order_index: h.order_index })
             .eq("id", h.id),
         ),
       );
-      setHouses(sortedHousesLocal);
+      setHouses(finalSorted);
     } catch (err: any) {
       addToast(`เรียงลำดับไม่สำเร็จ: ${err.message || "Unknown"}`, "error");
     } finally {
       setSorting(false);
       isSortingRef.current = false;
     }
-  }, [startPosition, currentPosition, houses, calculateDistance]);
+  }, [
+    startPosition,
+    currentPosition,
+    houses,
+    calculateDistance,
+    groupNearbyHouses,
+  ]);
 
   const handleSearch = useCallback(
     (query: string) => {
@@ -695,11 +742,10 @@ export default function NavigatePage() {
     }
   };
 
-  // === ระบบกรอง + จัดกลุ่ม ===
+  // === การกรอง + จัดกลุ่มขั้นสุดท้าย ===
   const filteredHouses = useMemo(() => {
     let result = houses;
 
-    // กรองตามบ้านเลขที่
     if (houseNumberFilter.trim()) {
       result = result.filter((h) =>
         extractHouseNumber(h.address)
@@ -707,8 +753,6 @@ export default function NavigatePage() {
           .includes(houseNumberFilter.trim().toLowerCase()),
       );
     }
-
-    // กรองตามพิกัด
     if (showNoCoords) {
       result = result.filter((h) => !h.lat || !h.lng);
     }
@@ -716,7 +760,6 @@ export default function NavigatePage() {
       result = result.filter((h) => h.lat && h.lng);
     }
 
-    // จัดกลุ่มตามบ้านเลขที่ (ถ้ามีการเปิดใช้)
     if (groupByHouseNumber) {
       result = [...result].sort((a, b) => {
         const ha = extractHouseNumber(a.address);
@@ -807,6 +850,7 @@ export default function NavigatePage() {
     loading,
     sorting,
     reSortHouses,
+    groupNearbyHouses, // เพิ่ม dependency
   ]);
 
   if (loading) {
@@ -870,9 +914,8 @@ export default function NavigatePage() {
               </div>
             </div>
 
-            {/* ค้นหา + ปุ่มกรอง */}
             <div className="flex gap-3 mb-4">
-              <div className="relative flex-1">
+              <div className="relative flex-1 text-gray-800">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
                   type="text"
@@ -891,8 +934,8 @@ export default function NavigatePage() {
               </button>
             </div>
 
-            {/* ตัวเลือกจัดกลุ่ม + พิกัด */}
-            <div className="flex flex-wrap items-center gap-4 mb-4 bg-gray-50 p-4 rounded-xl border">
+            {/* ตัวเลือกจัดกลุ่ม */}
+            <div className="flex flex-wrap items-center gap-4 mb-4 bg-gray-50 p-4 rounded-xl border text-gray-800">
               <label className="flex items-center gap-2 text-sm cursor-pointer">
                 <input
                   type="checkbox"
@@ -902,6 +945,22 @@ export default function NavigatePage() {
                 />
                 <span className="font-medium">จัดกลุ่มตามบ้านเลขที่</span>
               </label>
+
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={groupNearbyHouses}
+                  onChange={(e) => {
+                    setGroupNearbyHouses(e.target.checked);
+                    shouldResortRef.current = true; // รีเรียงทันที
+                  }}
+                  className="w-4 h-4 text-cyan-600 rounded"
+                />
+                <span className="font-medium text-cyan-700">
+                  จัดกลุ่มบ้านใกล้กัน (500ม.)
+                </span>
+              </label>
+
               <label className="flex items-center gap-1 text-sm cursor-pointer">
                 <input
                   type="checkbox"
