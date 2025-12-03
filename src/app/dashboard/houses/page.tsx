@@ -497,23 +497,19 @@ export default function HousesPage() {
   const handleAddressChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
     setAddress(value);
-    const parts = value.split(" ").filter(Boolean);
+
+    const trimmedValue = value.trim();
+    const parts = trimmedValue.split(" ").filter(Boolean);
     setAddressParts(parts);
 
-    const cursorPos = e.target.selectionStart;
+    // ตรวจสอบว่าผู้ใช้พิมพ์เว้นวรรคท้ายสุดหรือไม่ (เพื่อแสดง dropdown)
+    const endsWithSpace = value.endsWith(" ") || value.endsWith("\n");
+    const cursorAtEnd = e.target.selectionStart === value.length;
 
-    if (
-      parts.length >= 1 &&
-      value.endsWith(" ") &&
-      cursorPos === value.length
-    ) {
+    if (parts.length >= 1 && endsWithSpace && cursorAtEnd) {
       setShowVillageDropdown(true);
       setShowSubdistrictDropdown(false);
-    } else if (
-      parts.length >= 2 &&
-      value.endsWith(" ") &&
-      cursorPos === value.length
-    ) {
+    } else if (parts.length >= 2 && endsWithSpace && cursorAtEnd) {
       setShowVillageDropdown(false);
       setShowSubdistrictDropdown(true);
     } else {
@@ -523,20 +519,22 @@ export default function HousesPage() {
   };
 
   const selectVillage = (village: string) => {
-    const newParts = [...addressParts.slice(0, -1), `ม.${village}`];
-    setAddressParts(newParts);
-    setAddress(newParts.join(" "));
+    // เปลี่ยนใหม่: ไม่ตัดคำสุดท้าย แต่เติมต่อท้ายทั้งหมด
+    const newAddress = address.trim() + ` ม.${village}`;
+    setAddress(newAddress);
+    setAddressParts(newAddress.split(" ").filter(Boolean));
     setShowVillageDropdown(false);
     setShowSubdistrictDropdown(true);
-    addressInputRef.current?.focus();
+    setTimeout(() => addressInputRef.current?.focus(), 0);
   };
 
   const selectSubdistrict = (sub: string) => {
-    const newParts = [...addressParts, `ต.${sub}`, "อ.วังเจ้า", "จ.ตาก"];
-    setAddressParts(newParts);
-    setAddress(newParts.join(" "));
+    // เติมต่อท้ายทั้งหมด ไม่ลบอะไรเลย
+    const newAddress = address.trim() + ` ต.${sub} อ.วังเจ้า จ.ตาก`;
+    setAddress(newAddress);
+    setAddressParts(newAddress.split(" ").filter(Boolean));
     setShowSubdistrictDropdown(false);
-    addressInputRef.current?.focus();
+    setTimeout(() => addressInputRef.current?.focus(), 0);
   };
 
   const handleFileUpload = async () => {
