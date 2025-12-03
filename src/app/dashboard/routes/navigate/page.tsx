@@ -549,39 +549,80 @@ export default function NavigatePage() {
     [sortedHouses],
   );
   const openFullRouteOnMaps = useCallback(async () => {
-    if (!startPosition && !currentPosition)
+    if (!startPosition && !currentPosition) {
       return addToast("ยังไม่มีตำแหน่งเริ่มต้น", "error");
-    await refreshData();
-    const validHouses = houses.filter((h) => h.lat && h.lng);
-    if (validHouses.length === 0)
-      return addToast("ไม่มีจุดหมายที่มีพิกัด", "error");
-    const origin = startPosition || currentPosition || DEFAULT_POSITION; // ใช้ start ถ้ามี
-    const sorted = validHouses
+    }
+
+    await refreshData(); // รีเฟรชข้อมูลล่าสุดก่อน
+
+    const origin = startPosition || currentPosition || DEFAULT_POSITION;
+
+    // ดึงเฉพาะบ้านที่มีพิกัด
+    const validHouses = houses
+      .filter((h) => h.lat && h.lng)
       .map((h) => ({
         ...h,
         dist: calculateDistance(origin.lat, origin.lng, h.lat!, h.lng!),
-      }))
-      .sort((a, b) => a.dist - b.dist)
-      .map((h, i) => ({ ...h, order_index: i + 1 }));
+      }));
+
+    if (validHouses.length === 0) {
+      return addToast("ไม่มีจุดหมายที่มีพิกัด", "error");
+    }
+
+    // เรียงตามระยะทางใกล้ที่สุด
+    const sortedByDistance = [...validHouses].sort((a, b) => a.dist - b.dist);
+
+    // อัพเดท order_index ในฐานข้อมูล (ใช้ลำดับตามระยะทางจริง)
+    const updatedHouses = sortedByDistance.map((h, i) => ({
+      ...h,
+      order_index: i + 1,
+    }));
+
     try {
       await Promise.all(
-        sorted.map((h) =>
+        updatedHouses.map((h) =>
           supabase
             .from("today_houses")
             .update({ order_index: h.order_index })
             .eq("id", h.id),
         ),
       );
+
+      // อัพเดท state ให้แสดงลำดับใหม่ทันที
       setHouses((prev) =>
-        prev.map((h) => sorted.find((s) => s.id === h.id) || h),
+        prev.map((house) => {
+          const updated = updatedHouses.find((u) => u.id === house.id);
+          return updated
+            ? { ...house, order_index: updated.order_index }
+            : house;
+        }),
       );
-    } catch {}
+    } catch (err) {
+      console.error("อัพเดท order_index ไม่สำเร็จ:", err);
+      // ไม่แจ้ง error เพราะไม่ใช่จุดหลักของฟีเจอร์นี้
+    }
+
+    // จำกัดแค่ 20 บ้านแรกสำหรับเปิดใน Google Maps
+    const housesForMap = sortedByDistance.slice(0, 20);
+
     const points = [
-      `${origin.lat},${origin.lng}`, // origin จาก start หรือ current
-      ...sorted.map((h) => `${h.lat},${h.lng}`),
+      `${origin.lat},${origin.lng}`, // จุดเริ่มต้น
+      ...housesForMap.map((h) => `${h.lat},${h.lng}`),
     ];
-    const url = `https://www.google.com/maps/dir/${points.map(encodeURIComponent).join("/")}`;
-    addToast(`เปิดเส้นทางแล้ว! ${sorted.length} บ้าน`, "success");
+
+    const url = `https://www.google.com/maps/dir/${points
+      .map(encodeURIComponent)
+      .join("/")}`;
+
+    const totalValid = validHouses.length;
+    const usedCount = housesForMap.length;
+
+    const message =
+      totalValid > 20
+        ? `เปิดเส้นทาง 20 บ้านแรก (จากทั้งหมด ${totalValid} บ้านที่มีพิกัด)`
+        : `เปิดเส้นทางทั้งหมด ${usedCount} บ้าน`;
+
+    addToast(message, "success");
     window.open(url, "_blank");
   }, [startPosition, currentPosition, houses, calculateDistance, refreshData]);
   const loadPendingAndResort = useCallback(
