@@ -32,9 +32,9 @@ interface House {
   address: string;
   lat: number | null;
   lng: number | null;
-  note: string;
+  note: string | null; // เปลี่ยนจาก string เป็น string | null
   created_at: string;
-  updated_at: string;
+  updated_at: string | null; // เพิ่ม | null ให้ด้วย (เผื่ออนาคต)
 }
 
 interface Toast {
@@ -322,7 +322,7 @@ export default function HousesPage() {
     setName(house.full_name);
     setPhone(house.phone);
     setAddress(house.address);
-    setNote(house.note || "");
+    setNote(house.note ?? ""); // แก้ตรงนี้! ใช้ ?? ไม่ใช่ ||
     const parts = house.address.split(" ");
     setAddressParts(parts);
     setCoordInput(house.lat && house.lng ? `${house.lat},${house.lng}` : "");
@@ -790,8 +790,8 @@ export default function HousesPage() {
                           {h.address}
                         </p>
                         {h.note && (
-                          <p className="text-xs text-purple-600 mt-1 font-medium">
-                            {h.note}
+                          <p className="text-xs text-amber-700 mt-1 italic">
+                            หมายเหตุ : {h.note}
                           </p>
                         )}
                       </div>

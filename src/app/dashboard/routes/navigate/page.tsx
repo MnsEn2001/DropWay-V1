@@ -15,7 +15,6 @@ import {
   Filter,
 } from "lucide-react";
 
-// 1. เพิ่ม note ใน interface (ใกล้ๆ บรรทัดที่มี interface House)
 interface House {
   id: string;
   user_id: string;
@@ -24,10 +23,10 @@ interface House {
   address: string;
   lat: number | null;
   lng: number | null;
-  note: string; // เพิ่มบรรทัดนี้
+  note: string | null; // เปลี่ยนจาก string เป็น string | null
   order_index: number;
   created_at: string;
-  updated_at: string;
+  updated_at: string | null; // เพิ่ม | null ให้ด้วย (ดีกว่า)
 }
 
 const DEFAULT_POSITION = { lat: 16.8833, lng: 99.125 };
@@ -355,7 +354,6 @@ export default function NavigatePage() {
     if (!user) return;
     try {
       const { data } = await supabase.rpc("refresh_and_merge_today_houses");
-      // 2. แก้ใน refreshData() ให้รับ note ด้วย (หาบรรทัดนี้แล้วแก้)
       setHouses(
         (data || []).map((h: any) => ({
           id: h.id,
@@ -365,7 +363,7 @@ export default function NavigatePage() {
           address: h.address,
           lat: h.lat ? Number(h.lat) : null,
           lng: h.lng ? Number(h.lng) : null,
-          note: h.note || "", // เพิ่มบรรทัดนี้
+          note: h.note ?? null, // แก้ตรงนี้! ใช้ ?? null (เผื่อเป็น undefined)
           order_index: Number(h.order_index),
           created_at: h.created_at,
           updated_at: h.updated_at,
@@ -758,7 +756,7 @@ export default function NavigatePage() {
                     {house.address}
                   </p>
                   {/* เพิ่มหมายเหตุตรงนี้ */}
-                  {house.note && house.note.trim() !== "" && (
+                  {house.note?.trim() && (
                     <p className="text-xs text-amber-700 mt-1 italic">
                       หมายเหตุ : {house.note.trim()}
                     </p>

@@ -13,14 +13,48 @@ export interface Database {
       houses: {
         Row: {
           id: string;
+          full_name: string;
+          phone: string;
+          address: string;
+          lat: number | null;
+          lng: number | null;
+          note: string | null;
+          created_at: string;
+          updated_at: string | null;
+        };
+        Insert: {
+          full_name: string;
+          phone: string;
+          address: string;
+          lat?: number | null;
+          lng?: number | null;
+          note?: string | null;
+          created_at?: string;
+          updated_at?: string | null;
+        };
+        Update: {
+          full_name?: string;
+          phone?: string;
+          address?: string;
+          lat?: number | null;
+          lng?: number | null;
+          note?: string | null;
+          created_at?: string;
+          updated_at?: string | null;
+        };
+      };
+
+      today_houses: {
+        Row: {
+          id: string;
           user_id: string;
           full_name: string;
           phone: string;
           address: string;
           lat: number | null;
           lng: number | null;
-          delivered: boolean;
-          delivered_at: string | null;
+          note: string | null;
+          order_index: number;
           created_at: string;
           updated_at: string | null;
         };
@@ -31,8 +65,8 @@ export interface Database {
           address: string;
           lat?: number | null;
           lng?: number | null;
-          delivered?: boolean;
-          delivered_at?: string | null;
+          note?: string | null;
+          order_index?: number;
           created_at?: string;
           updated_at?: string | null;
         };
@@ -43,13 +77,14 @@ export interface Database {
           address?: string;
           lat?: number | null;
           lng?: number | null;
-          delivered?: boolean;
-          delivered_at?: string | null;
+          note?: string | null;
+          order_index?: number;
           created_at?: string;
           updated_at?: string | null;
         };
       };
-      today_houses: {
+
+      pending_houses: {
         Row: {
           id: string;
           user_id: string;
@@ -58,10 +93,11 @@ export interface Database {
           address: string;
           lat: number | null;
           lng: number | null;
+          note: string | null;
           order_index: number;
-          delivered: boolean;
-          delivered_at: string | null;
           created_at: string;
+          updated_at: string | null;
+          original_date: string;
         };
         Insert: {
           user_id: string;
@@ -70,10 +106,11 @@ export interface Database {
           address: string;
           lat?: number | null;
           lng?: number | null;
+          note?: string | null;
           order_index?: number;
-          delivered?: boolean;
-          delivered_at?: string | null;
           created_at?: string;
+          updated_at?: string | null;
+          original_date: string;
         };
         Update: {
           user_id?: string;
@@ -82,31 +119,34 @@ export interface Database {
           address?: string;
           lat?: number | null;
           lng?: number | null;
+          note?: string | null;
           order_index?: number;
-          delivered?: boolean;
-          delivered_at?: string | null;
           created_at?: string;
+          updated_at?: string | null;
+          original_date?: string;
         };
       };
-      start_point: {
+
+      start_positions: {
         Row: {
-          id: number;
+          id: string;
           user_id: string;
-          name: string;
           lat: number;
           lng: number;
+          name: string | null;
+          created_at: string;
+          updated_at: string | null;
         };
         Insert: {
           user_id: string;
-          name: string;
           lat: number;
           lng: number;
+          name?: string | null;
         };
         Update: {
-          user_id?: string;
-          name?: string;
           lat?: number;
           lng?: number;
+          name?: string | null;
         };
       };
     };
