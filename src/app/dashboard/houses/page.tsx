@@ -339,8 +339,6 @@ export default function HousesPage() {
       addToast("กรุณาเข้าสู่ระบบก่อน", "error");
       return;
     }
-
-    // เช็คว่ามีใน today_houses แล้วหรือยัง
     const { data: existing } = await supabase
       .from("today_houses")
       .select("id")
@@ -348,14 +346,10 @@ export default function HousesPage() {
       .eq("full_name", house.full_name)
       .eq("phone", house.phone)
       .single();
-
     if (existing) {
       addToast("รายการนี้มีในรับงานแล้ว", "info");
       return;
     }
-
-    // ←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←
-    // แก้ตรงนี้! เพิ่ม note: house.note || null
     const { error } = await supabase.from("today_houses").insert({
       user_id: user.id,
       full_name: house.full_name,
@@ -363,16 +357,10 @@ export default function HousesPage() {
       address: house.address,
       lat: house.lat || null,
       lng: house.lng || null,
-      note: house.note?.trim() ? house.note.trim() : null, // ← เพิ่มบรรทัดนี้!
       order_index: 0,
     });
-    // ←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←
-
-    if (error) {
-      addToast("เพิ่มเข้ารับงานไม่สำเร็จ: " + error.message, "error");
-    } else {
-      addToast("เพิ่มเข้ารับงานสำเร็จ! (รวมหมายเหตุ)", "success");
-    }
+    if (error) addToast("เพิ่มเข้ารับงานไม่สำเร็จ: " + error.message, "error");
+    else addToast("เพิ่มเข้ารับงานสำเร็จ!", "success");
   };
 
   const isAddressInWarehouse = (newAddress: string): boolean => {
@@ -803,7 +791,7 @@ export default function HousesPage() {
                         </p>
                         {h.note && (
                           <p className="text-xs text-amber-700 mt-1 italic">
-                            หมายเหตุ: {h.note}
+                            หมายเหตุ : {h.note}
                           </p>
                         )}
                       </div>
