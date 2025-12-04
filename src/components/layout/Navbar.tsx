@@ -13,7 +13,7 @@ import {
   User as UserIcon,
   LogIn,
 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase/client"; // แก้ตรงนี้แค่บรรทัดเดียว!
 import { User } from "@supabase/supabase-js";
 import { useState, useMemo, useEffect } from "react";
 
@@ -65,7 +65,6 @@ export function Navbar() {
         { href: "/signup", label: "สมัครสมาชิก", icon: UserIcon },
       ];
 
-  // คำนวณ active item ที่ match มากที่สุด (longest path) เพื่อให้ highlight แค่ 1 ปุ่ม
   const activeItem = useMemo(() => {
     return menuItems
       .filter(

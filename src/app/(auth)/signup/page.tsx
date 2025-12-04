@@ -1,7 +1,7 @@
 // src/app/(auth)/signup/page.tsx
 "use client";
 import { useState, useEffect, useRef } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase/client"; // แก้ตรงนี้แค่บรรทัดเดียว!
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";

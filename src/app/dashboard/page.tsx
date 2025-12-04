@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase/client"; // แก้ตรงนี้แค่บรรทัดเดียว!
 import {
   Home,
   MapPin,
@@ -23,7 +23,6 @@ export default function DashboardPage() {
   >([]);
   const [coordPercent, setCoordPercent] = useState(0);
 
-  // Helper: Format time ago
   const formatTimeAgo = (dateString: string): string => {
     const now = new Date();
     const date = new Date(dateString);
@@ -37,47 +36,49 @@ export default function DashboardPage() {
     return `${diffDays} วันที่แล้ว`;
   };
 
-  // Fetch data function - ขยายด้วย pending, coord %, และ recent activities
   const fetchData = async () => {
     try {
       setLoading(true);
       setError(null);
-      // ดึง user name
+
       const {
         data: { user },
       } = await supabase.auth.getUser();
       setUserName(user?.email?.split("@")[0] || "เพื่อน");
-      // ดึงจำนวนบ้านทั้งหมด
+
       const { count: totalCount } = await supabase
         .from("houses")
         .select("*", { count: "exact", head: true });
       setTotalHouses(totalCount || 0);
-      // ดึงจำนวนงานวันนี้
+
       const { data: todayData } = await supabase.rpc(
         "refresh_and_merge_today_houses",
       );
       setTodayHouses(todayData?.length || 0);
-      // ดึงจำนวนงานค้าง (pending)
+
       const { count: pendingCount } = await supabase
         .from("pending_houses")
         .select("*", { count: "exact", head: true });
       setPendingHouses(pendingCount || 0);
-      // คำนวณ % บ้านที่มีพิกัด - แก้ TS error โดยใช้ || 0 กับทั้ง totalCount และ withCoordsCount
+
       const { count: withCoordsCount } = await supabase
         .from("houses")
         .select("*", { count: "exact", head: true })
-        .gt("lat", 0);
+        .not("lat", "is", null)
+        .not("lng", "is", null);
+
       const safeTotal = totalCount || 0;
       const safeWithCoords = withCoordsCount || 0;
       setCoordPercent(
         safeTotal > 0 ? Math.round((safeWithCoords / safeTotal) * 100) : 0,
       );
-      // ดึง recent activities (สมมติมี table audits: {action: string, created_at: string})
+
       const { data: activities } = await supabase
-        .from("audits") // ถ้าไม่มี table นี้ สามารถ mock ด้วย [] หรือสร้างใน Supabase
+        .from("audits")
         .select("action, created_at")
         .limit(5)
         .order("created_at", { ascending: false });
+
       setRecentActivities(
         activities?.map((a: any) => ({
           action: a.action || "เพิ่มบ้านใหม่",
@@ -93,22 +94,17 @@ export default function DashboardPage() {
     }
   };
 
-  // Initial load เท่านั้น (ไม่มี auto-refresh)
   useEffect(() => {
     fetchData();
   }, []);
 
-  // Personalized tip จาก data
   const getTip = () => {
-    if (todayHouses > 15) {
+    if (todayHouses > 15)
       return "งานวันนี้เยอะ! ลองเรียงเส้นทางก่อนออกเดินทางนะ";
-    }
-    if (pendingHouses > 5) {
+    if (pendingHouses > 5)
       return `มีงานค้าง ${pendingHouses} รายการ ลองดึงมาใช้ดู`;
-    }
-    if (coordPercent < 70) {
+    if (coordPercent < 70)
       return `มีบ้าน ${100 - coordPercent}% ที่ยังไม่มีพิกัด ลองเพิ่มดู`;
-    }
     return null;
   };
 

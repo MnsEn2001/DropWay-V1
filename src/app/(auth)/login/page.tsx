@@ -1,7 +1,7 @@
-// C:\DropWay\dropway\src\app\(auth)\login\page.tsx
+// src/app/(auth)/login/page.tsx
 "use client";
 import { useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase/client"; // แก้ตรงนี้แค่บรรทัดเดียว!
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -14,10 +14,12 @@ export default function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
+
     if (error) {
       alert(error.message);
       setLoading(false);

@@ -1,8 +1,7 @@
 // src/app/dashboard/houses/page.tsx
 "use client";
-
 import { useEffect, useState, useMemo, useRef } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase/client"; // แก้ตรงนี้!
 import {
   Search,
   Plus,
@@ -334,7 +333,7 @@ export default function HousesPage() {
   const addToRoute = async (house: House) => {
     const {
       data: { user },
-    } = await supabase.auth.getUser();
+    } = await supabase.auth.getUser(); // ใช้ได้ปกติ
     if (!user) {
       addToast("กรุณาเข้าสู่ระบบก่อน", "error");
       return;
@@ -351,7 +350,7 @@ export default function HousesPage() {
       return;
     }
     const { error } = await supabase.from("today_houses").insert({
-      user_id: user.id,
+      user_id: user.id, // ต้องมีบรรทัดนี้
       full_name: house.full_name,
       phone: house.phone,
       address: house.address,
