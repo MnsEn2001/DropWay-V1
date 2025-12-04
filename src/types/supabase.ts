@@ -24,8 +24,30 @@ export interface Database {
           created_at: string;
           updated_at: string | null;
         };
-        Insert: any;
-        Update: any;
+        Insert: {
+          user_id: string;
+          full_name: string;
+          phone: string;
+          address: string;
+          lat?: number | null;
+          lng?: number | null;
+          delivered?: boolean;
+          delivered_at?: string | null;
+          created_at?: string;
+          updated_at?: string | null;
+        };
+        Update: {
+          user_id?: string;
+          full_name?: string;
+          phone?: string;
+          address?: string;
+          lat?: number | null;
+          lng?: number | null;
+          delivered?: boolean;
+          delivered_at?: string | null;
+          created_at?: string;
+          updated_at?: string | null;
+        };
       };
       today_houses: {
         Row: {
@@ -41,6 +63,30 @@ export interface Database {
           delivered_at: string | null;
           created_at: string;
         };
+        Insert: {
+          user_id: string;
+          full_name: string;
+          phone: string;
+          address: string;
+          lat?: number | null;
+          lng?: number | null;
+          order_index?: number;
+          delivered?: boolean;
+          delivered_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          full_name?: string;
+          phone?: string;
+          address?: string;
+          lat?: number | null;
+          lng?: number | null;
+          order_index?: number;
+          delivered?: boolean;
+          delivered_at?: string | null;
+          created_at?: string;
+        };
       };
       start_point: {
         Row: {
@@ -49,6 +95,18 @@ export interface Database {
           name: string;
           lat: number;
           lng: number;
+        };
+        Insert: {
+          user_id: string;
+          name: string;
+          lat: number;
+          lng: number;
+        };
+        Update: {
+          user_id?: string;
+          name?: string;
+          lat?: number;
+          lng?: number;
         };
       };
     };
