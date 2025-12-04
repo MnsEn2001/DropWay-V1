@@ -23,15 +23,12 @@ export interface Database {
           updated_at: string;
         };
         Insert: {
-          id?: string;
           full_name: string;
           phone: string;
           address: string;
           lat?: number | null;
           lng?: number | null;
           note?: string | null;
-          created_at?: string;
-          updated_at?: string;
         };
         Update: {
           full_name?: string;
@@ -40,8 +37,6 @@ export interface Database {
           lat?: number | null;
           lng?: number | null;
           note?: string | null;
-          created_at?: string;
-          updated_at?: string;
         };
       };
 
@@ -60,7 +55,6 @@ export interface Database {
           updated_at: string;
         };
         Insert: {
-          id?: string;
           user_id: string;
           full_name: string;
           phone: string;
@@ -69,8 +63,6 @@ export interface Database {
           lng?: number | null;
           note?: string | null; // สำคัญมาก!
           order_index?: number;
-          created_at?: string;
-          updated_at?: string;
         };
         Update: {
           full_name?: string;
@@ -78,7 +70,7 @@ export interface Database {
           address?: string;
           lat?: number | null;
           lng?: number | null;
-          note?: string | null;
+          note?: string | null; // สำคัญมาก!
           order_index?: number;
         };
       };
@@ -99,7 +91,6 @@ export interface Database {
           original_date: string;
         };
         Insert: {
-          id?: string;
           user_id: string;
           full_name: string;
           phone: string;
@@ -109,9 +100,6 @@ export interface Database {
           note?: string | null;
           order_index?: number;
           original_date: string;
-        };
-        Update: {
-          note?: string | null;
         };
       };
 
@@ -126,27 +114,15 @@ export interface Database {
           updated_at: string;
         };
         Insert: {
-          id?: string;
           user_id: string;
           lat: number;
           lng: number;
           name?: string | null;
         };
-        Update: {
-          lat?: number;
-          lng?: number;
-          name?: string | null;
-        };
       };
     };
-    Views: {
-      [_ in never]: never;
-    };
-    Functions: {
-      [_ in never]: never;
-    };
-    Enums: {
-      [_ in never]: never;
-    };
+    Views: { [key: string]: never };
+    Functions: { [key: string]: never };
+    Enums: { [key: string]: never };
   };
 }
