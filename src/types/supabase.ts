@@ -4,7 +4,7 @@ export type Json =
   | number
   | boolean
   | null
-  | { [key: string]: Json | undefined }
+  | { [key: string]: Json }
   | Json[];
 
 export interface Database {
@@ -13,33 +13,20 @@ export interface Database {
       houses: {
         Row: {
           id: string;
+          user_id: string;
           full_name: string;
           phone: string;
           address: string;
           lat: number | null;
           lng: number | null;
-          note: string;
+          delivered: boolean;
+          delivered_at: string | null;
           created_at: string;
-          updated_at: string;
+          updated_at: string | null;
         };
-        Insert: {
-          full_name: string;
-          phone: string;
-          address: string;
-          lat?: number | null;
-          lng?: number | null;
-          note?: string | null;
-        };
-        Update: {
-          full_name?: string;
-          phone?: string;
-          address?: string;
-          lat?: number | null;
-          lng?: number | null;
-          note?: string | null;
-        };
+        Insert: any;
+        Update: any;
       };
-
       today_houses: {
         Row: {
           id: string;
@@ -49,80 +36,21 @@ export interface Database {
           address: string;
           lat: number | null;
           lng: number | null;
-          note: string; // สำคัญมาก!
           order_index: number;
+          delivered: boolean;
+          delivered_at: string | null;
           created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          user_id: string;
-          full_name: string;
-          phone: string;
-          address: string;
-          lat?: number | null;
-          lng?: number | null;
-          note?: string | null; // สำคัญมาก!
-          order_index?: number;
-        };
-        Update: {
-          full_name?: string;
-          phone?: string;
-          address?: string;
-          lat?: number | null;
-          lng?: number | null;
-          note?: string | null; // สำคัญมาก!
-          order_index?: number;
         };
       };
-
-      pending_houses: {
+      start_point: {
         Row: {
-          id: string;
+          id: number;
           user_id: string;
-          full_name: string;
-          phone: string;
-          address: string;
-          lat: number | null;
-          lng: number | null;
-          note: string;
-          order_index: number;
-          created_at: string;
-          updated_at: string;
-          original_date: string;
-        };
-        Insert: {
-          user_id: string;
-          full_name: string;
-          phone: string;
-          address: string;
-          lat?: number | null;
-          lng?: number | null;
-          note?: string | null;
-          order_index?: number;
-          original_date: string;
-        };
-      };
-
-      start_positions: {
-        Row: {
-          id: string;
-          user_id: string;
+          name: string;
           lat: number;
           lng: number;
-          name: string | null;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          user_id: string;
-          lat: number;
-          lng: number;
-          name?: string | null;
         };
       };
     };
-    Views: { [key: string]: never };
-    Functions: { [key: string]: never };
-    Enums: { [key: string]: never };
   };
 }

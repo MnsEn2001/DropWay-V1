@@ -1,6 +1,5 @@
 // src/app/dashboard/houses/page.tsx
 "use client";
-
 import { useEffect, useState, useMemo, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import {
@@ -21,7 +20,6 @@ import {
   FileText,
   X,
   Copy,
-  Download,
 } from "lucide-react";
 import Papa from "papaparse";
 
@@ -32,9 +30,7 @@ interface House {
   address: string;
   lat: number | null;
   lng: number | null;
-  note: string;
   created_at: string;
-  updated_at: string;
 }
 
 interface Toast {
@@ -48,17 +44,16 @@ const ITEMS_PER_PAGE = 20;
 export default function HousesPage() {
   const [activeTab, setActiveTab] = useState<"list" | "csv">("list");
   const [houses, setHouses] = useState<House[]>([]);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(""); // ค้นหาทุกอย่างในช่องเดียว
   const [provinceFilter, setProvinceFilter] = useState("");
   const [districtFilter, setDistrictFilter] = useState("");
   const [subdistrictFilter, setSubdistrictFilter] = useState("");
-  const [villageFilter, setVillageFilter] = useState("");
-  const [houseNumberFilter, setHouseNumberFilter] = useState("");
-  const [phoneFilter, setPhoneFilter] = useState("");
+  const [villageFilter, setVillageFilter] = useState(""); // หมู่ที่
+  const [houseNumberFilter, setHouseNumberFilter] = useState(""); // ใหม่: บ้านเลขที่
+  const [phoneFilter, setPhoneFilter] = useState(""); // ใหม่: เบอร์โทร
   const [showNoCoords, setShowNoCoords] = useState(false);
   const [showWithCoords, setShowWithCoords] = useState(false);
   const [groupByHouseNumber, setGroupByHouseNumber] = useState(false);
-  const [groupByNearby, setGroupByNearby] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [showAdd, setShowAdd] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -68,8 +63,6 @@ export default function HousesPage() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
-  const [note, setNote] = useState("");
-  const [addressParts, setAddressParts] = useState<string[]>([]);
   const [coordInput, setCoordInput] = useState("");
   const [detectedLat, setDetectedLat] = useState<number | null>(null);
   const [detectedLng, setDetectedLng] = useState<number | null>(null);
@@ -77,24 +70,10 @@ export default function HousesPage() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [downloading, setDownloading] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const [showVillageDropdown, setShowVillageDropdown] = useState(false);
-  const [showSubdistrictDropdown, setShowSubdistrictDropdown] = useState(false);
-
   const filterModalRef = useRef<HTMLDivElement>(null);
   const addEditModalRef = useRef<HTMLDivElement>(null);
-  const addressInputRef = useRef<HTMLTextAreaElement>(null);
-
-  const villages = Array.from({ length: 10 }, (_, i) => (i + 1).toString());
-  const subdistricts = [
-    "นาโบสถ์",
-    "วังทอง",
-    "คลองยายเฒ่า",
-    "เชียงทอง",
-    "ลาดยาว",
-  ];
 
   const addToast = (message: string, type: "success" | "error" | "info") => {
     const id = Date.now().toString();
@@ -150,6 +129,7 @@ export default function HousesPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showFilterModal, showAdd, showEditModal]);
 
+  // ดึงบ้านเลขที่
   const extractHouseNumber = (address: string): string => {
     const match = address.match(
       /(?:บ้านเลขที่|เลขที่|ที่\s*)?\s*([\d\/\\-]+)\s*(?:\/\s*\d+)?/i,
@@ -157,15 +137,11 @@ export default function HousesPage() {
     return match ? match[1].trim() : "";
   };
 
+  // ดึงหมู่ที่
   const extractVillageNumber = (address: string): string => {
     const match =
       address.match(/หมู่\s*[ที่]?\s*(\d+)/i) ||
       address.match(/ม\s*\.?\s*(\d+)/i);
-    return match ? match[1] : "";
-  };
-
-  const extractSubdistrict = (address: string): string => {
-    const match = address.match(/ต\.\s*([\w]+)/i);
     return match ? match[1] : "";
   };
 
@@ -177,34 +153,31 @@ export default function HousesPage() {
       const phoneStr = h.phone;
       const houseNum = extractHouseNumber(h.address);
       const villageNum = extractVillageNumber(h.address);
-      const subdistrict = extractSubdistrict(h.address);
-      const noteLower = (h.note || "").toLowerCase();
 
-      // ค้นหาด้วยข้อความ
-      const matchesText =
-        fullName.includes(lowerSearch) ||
-        phoneStr.includes(lowerSearch) ||
-        addr.includes(lowerSearch) ||
-        noteLower.includes(lowerSearch) ||
-        houseNum.includes(lowerSearch) ||
-        villageNum.includes(lowerSearch) ||
-        subdistrict.includes(lowerSearch);
+      // ค้นหาทุกอย่างในช่องเดียว
+      if (lowerSearch) {
+        const matches =
+          fullName.includes(lowerSearch) ||
+          phoneStr.includes(lowerSearch) ||
+          addr.includes(lowerSearch) ||
+          houseNum.includes(lowerSearch) ||
+          villageNum.includes(lowerSearch);
 
-      // ค้นหาด้วยพิกัด (เช่น พิมพ์ 16.69, 99.17)
-      const matchesCoords =
-        h.lat &&
-        h.lng &&
-        lowerSearch.includes(h.lat.toFixed(2)) &&
-        lowerSearch.includes(h.lng.toFixed(2));
-
-      if (lowerSearch && !matchesText && !matchesCoords) return false;
-
-      if (houseNumberFilter.trim()) {
-        if (!houseNum.includes(houseNumberFilter.trim())) return false;
+        if (!matches) return false;
       }
+
+      // ตัวกรองบ้านเลขที่
+      if (houseNumberFilter.trim()) {
+        const filterNum = houseNumberFilter.trim();
+        if (!houseNum.includes(filterNum)) return false;
+      }
+
+      // ตัวกรองเบอร์โทร
       if (phoneFilter.trim()) {
         if (!phoneStr.includes(phoneFilter.trim())) return false;
       }
+
+      // ตัวกรองจังหวัด
       if (provinceFilter.trim()) {
         const p = provinceFilter.toLowerCase().trim();
         if (
@@ -214,6 +187,8 @@ export default function HousesPage() {
         )
           return false;
       }
+
+      // ตัวกรองอำเภอ
       if (districtFilter.trim()) {
         const d = districtFilter.toLowerCase().trim();
         if (
@@ -223,6 +198,8 @@ export default function HousesPage() {
         )
           return false;
       }
+
+      // ตัวกรองตำบล
       if (subdistrictFilter.trim()) {
         const t = subdistrictFilter.toLowerCase().trim();
         if (
@@ -232,10 +209,14 @@ export default function HousesPage() {
         )
           return false;
       }
+
+      // ตัวกรองหมู่ที่
       if (villageFilter.trim()) {
-        if (villageNum !== villageFilter.trim()) return false;
+        const inputNum = villageFilter.trim();
+        if (villageNum !== inputNum) return false;
       }
 
+      // ตัวกรองพิกัด
       const hasCoords = h.lat && h.lng;
       if (showNoCoords && hasCoords) return false;
       if (showWithCoords && !hasCoords) return false;
@@ -243,10 +224,12 @@ export default function HousesPage() {
       return true;
     });
 
+    // จัดกลุ่มตามบ้านเลขที่
     if (groupByHouseNumber) {
       result.sort((a, b) => {
         const houseA = extractHouseNumber(a.address);
         const houseB = extractHouseNumber(b.address);
+
         if (houseA && houseB) {
           if (houseA === houseB) {
             return (
@@ -256,16 +239,9 @@ export default function HousesPage() {
           }
           return houseA.localeCompare(houseB, undefined, { numeric: true });
         }
+        if (houseA) return -1;
+        if (houseB) return 1;
         return 0;
-      });
-    } else if (groupByNearby) {
-      result.sort((a, b) => {
-        const villageA = parseInt(extractVillageNumber(a.address) || "0");
-        const villageB = parseInt(extractVillageNumber(b.address) || "0");
-        if (villageA !== villageB) return villageA - villageB;
-        const houseA = extractHouseNumber(a.address);
-        const houseB = extractHouseNumber(b.address);
-        return houseA.localeCompare(houseB, undefined, { numeric: true });
       });
     } else {
       result.sort(
@@ -287,7 +263,6 @@ export default function HousesPage() {
     showNoCoords,
     showWithCoords,
     groupByHouseNumber,
-    groupByNearby,
   ]);
 
   const totalPages = Math.ceil(filteredAndSorted.length / ITEMS_PER_PAGE);
@@ -322,9 +297,6 @@ export default function HousesPage() {
     setName(house.full_name);
     setPhone(house.phone);
     setAddress(house.address);
-    setNote(house.note || "");
-    const parts = house.address.split(" ");
-    setAddressParts(parts);
     setCoordInput(house.lat && house.lng ? `${house.lat},${house.lng}` : "");
     setDetectedLat(house.lat);
     setDetectedLng(house.lng);
@@ -346,10 +318,12 @@ export default function HousesPage() {
       .eq("full_name", house.full_name)
       .eq("phone", house.phone)
       .single();
+
     if (existing) {
       addToast("รายการนี้มีในรับงานแล้ว", "info");
       return;
     }
+
     const { error } = await supabase.from("today_houses").insert({
       user_id: user.id,
       full_name: house.full_name,
@@ -357,16 +331,30 @@ export default function HousesPage() {
       address: house.address,
       lat: house.lat || null,
       lng: house.lng || null,
-      note: null,
       order_index: 0,
     });
+
     if (error) addToast("เพิ่มเข้ารับงานไม่สำเร็จ: " + error.message, "error");
     else addToast("เพิ่มเข้ารับงานสำเร็จ!", "success");
   };
 
+  const normalizeAddress = (addr: string): string => {
+    if (!addr) return "";
+    return addr
+      .toLowerCase()
+      .trim()
+      .replace(
+        /บ้านเลขที่|เลขที่|หมู่บ้าน|คอนโด|อาคาร|ชั้น|ห้อง|ซอย|ถนน|ตำบล|อำเภอ|จังหวัด|แขวง|เขต|กรุงเทพฯ|กทม|กรุงเทพมหานคร|ม\.|หมู่ที่|หมู่|ต\.|อ\.|จ\./g,
+        "",
+      )
+      .replace(/ม\s*(\d+)/g, "ม$1")
+      .replace(/\s+/g, " ")
+      .trim();
+  };
+
   const isAddressInWarehouse = (newAddress: string): boolean => {
-    const normalizedNew = newAddress.toLowerCase().trim();
-    return houses.some((h) => h.address.toLowerCase().trim() === normalizedNew);
+    const normalizedNew = normalizeAddress(newAddress);
+    return houses.some((h) => normalizeAddress(h.address) === normalizedNew);
   };
 
   const deleteHouse = async (id: string) => {
@@ -407,7 +395,6 @@ export default function HousesPage() {
       full_name: name.trim(),
       phone: phone.trim(),
       address: address.trim(),
-      note: note.trim(),
       lat: detectedLat,
       lng: detectedLng,
     });
@@ -434,7 +421,6 @@ export default function HousesPage() {
         full_name: name.trim(),
         phone: phone.trim(),
         address: address.trim(),
-        note: note.trim(),
         lat: detectedLat,
         lng: detectedLng,
       })
@@ -464,7 +450,6 @@ export default function HousesPage() {
     setShowNoCoords(false);
     setShowWithCoords(false);
     setGroupByHouseNumber(false);
-    setGroupByNearby(false);
     setCurrentPage(1);
     addToast("ล้างตัวกรองแล้ว", "info");
   };
@@ -473,51 +458,10 @@ export default function HousesPage() {
     setName("");
     setPhone("");
     setAddress("");
-    setNote("");
-    setAddressParts([]);
     setCoordInput("");
     setDetectedLat(null);
     setDetectedLng(null);
     setEditingHouse(null);
-    setShowVillageDropdown(false);
-    setShowSubdistrictDropdown(false);
-  };
-
-  const handleAddressChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const value = e.target.value;
-    setAddress(value);
-    const trimmedValue = value.trim();
-    const parts = trimmedValue.split(" ").filter(Boolean);
-    setAddressParts(parts);
-    const endsWithSpace = value.endsWith(" ") || value.endsWith("\n");
-    const cursorAtEnd = e.target.selectionStart === value.length;
-    if (parts.length >= 1 && endsWithSpace && cursorAtEnd) {
-      setShowVillageDropdown(true);
-      setShowSubdistrictDropdown(false);
-    } else if (parts.length >= 2 && endsWithSpace && cursorAtEnd) {
-      setShowVillageDropdown(false);
-      setShowSubdistrictDropdown(true);
-    } else {
-      setShowVillageDropdown(false);
-      setShowSubdistrictDropdown(false);
-    }
-  };
-
-  const selectVillage = (village: string) => {
-    const newAddress = address.trim() + ` ม.${village}`;
-    setAddress(newAddress);
-    setAddressParts(newAddress.split(" ").filter(Boolean));
-    setShowVillageDropdown(false);
-    setShowSubdistrictDropdown(true);
-    setTimeout(() => addressInputRef.current?.focus(), 0);
-  };
-
-  const selectSubdistrict = (sub: string) => {
-    const newAddress = address.trim() + ` ต.${sub} อ.วังเจ้า จ.ตาก`;
-    setAddress(newAddress);
-    setAddressParts(newAddress.split(" ").filter(Boolean));
-    setShowSubdistrictDropdown(false);
-    setTimeout(() => addressInputRef.current?.focus(), 0);
   };
 
   const handleFileUpload = async () => {
@@ -538,13 +482,11 @@ export default function HousesPage() {
           ).trim();
           const phone = (row.phone || row.เบอร์ || "").trim();
           const address = (row.address || row.ที่อยู่ || "").trim();
-          const note = (row.note || row.หมายเหตุ || "").trim();
           if (full_name && phone && address && !isAddressInWarehouse(address)) {
             const { error } = await supabase.from("houses").insert({
               full_name,
               phone,
               address,
-              note,
               lat: null,
               lng: null,
             });
@@ -567,43 +509,15 @@ export default function HousesPage() {
     });
   };
 
-  const downloadAllHousesCsv = async () => {
-    setDownloading(true);
-    const { data, error } = await supabase
-      .from("houses")
-      .select("id,full_name,phone,address,lat,lng,note,created_at,updated_at")
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      addToast("ดาวน์โหลดไม่สำเร็จ: " + error.message, "error");
-      setDownloading(false);
-      return;
-    }
-
-    const csv = Papa.unparse(data);
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `คลังบ้าน_ทั้งหมด_${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-
-    addToast("ดาวน์โหลด CSV สำเร็จ!", "success");
-    setDownloading(false);
-  };
-
   const downloadCsvExample = () => {
-    const csvContent = `full_name,phone,address,note
-สมชาย ใจดี,0812345678,"123 หมู่ 1 ต.นาโบสถ์ อ.วังเจ้า จ.ตาก","ข้างศูนย์เด็กเล็ก"
-สมศรี สุขใจ,0898765432,"456 หมู่ 5 ต.แม่กาษา อ.เมืองตาก จ.ตาก","หลังอบต."`;
+    const csvContent = `full_name,phone,address
+สมชาย ใจดี,0812345678,"123 หมู่ 1 ต.นาโบสถ์ อ.วังเจ้า จ.ตาก"
+สมศรี สุขใจ,0898765432,"456 หมู่ 5 ต.แม่กาษา อ.เมืองตาก จ.ตาก"`;
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
-    link.setAttribute("download", "example_houses_with_note.csv");
+    link.setAttribute("download", "example_houses.csv");
     link.style.visibility = "hidden";
     document.body.appendChild(link);
     link.click();
@@ -623,14 +537,6 @@ export default function HousesPage() {
             </p>
           </div>
           <div className="flex gap-3">
-            <button
-              onClick={downloadAllHousesCsv}
-              disabled={downloading}
-              className="flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white text-sm font-semibold rounded-xl hover:bg-green-700 transition shadow-md disabled:opacity-60"
-            >
-              <Download className="w-4 h-4" />
-              {downloading ? "กำลังดาวน์โหลด..." : "ดาวน์โหลด CSV ทั้งหมด"}
-            </button>
             <button
               onClick={() => setShowAdd(true)}
               className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 transition shadow-md"
@@ -662,7 +568,7 @@ export default function HousesPage() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                 <input
                   type="text"
-                  placeholder="ค้นหาทุกอย่าง (ชื่อ, เบอร์, ที่อยู่, หมายเหตุ, พิกัด เช่น 16.69, 99.17)"
+                  placeholder="ค้นหาทุกอย่างได้เลย... (ชื่อ, เบอร์, บ้านเลขที่, ที่อยู่, หมู่ที่ ฯลฯ)"
                   value={search}
                   onChange={(e) => {
                     setSearch(e.target.value);
@@ -686,25 +592,11 @@ export default function HousesPage() {
                   checked={groupByHouseNumber}
                   onChange={(e) => {
                     setGroupByHouseNumber(e.target.checked);
-                    setGroupByNearby(false);
                     setCurrentPage(1);
                   }}
                   className="w-4 h-4 text-amber-600 rounded focus:ring-amber-500"
                 />
                 <span className="font-medium">จัดกลุ่มตามบ้านเลขที่</span>
-              </label>
-              <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={groupByNearby}
-                  onChange={(e) => {
-                    setGroupByNearby(e.target.checked);
-                    setGroupByHouseNumber(false);
-                    setCurrentPage(1);
-                  }}
-                  className="w-4 h-4 text-teal-600 rounded focus:ring-teal-500"
-                />
-                <span className="font-medium">จัดกลุ่มตามพื้นที่ใกล้เคียง</span>
               </label>
               <label className="flex items-center gap-1 text-sm text-gray-600 cursor-pointer">
                 <input
@@ -790,11 +682,6 @@ export default function HousesPage() {
                         <p className="text-xs text-gray-500 mt-1.5 line-clamp-2 leading-tight">
                           {h.address}
                         </p>
-                        {h.note && (
-                          <p className="text-xs text-amber-700 mt-1 italic">
-                            หมายเหตุ : {h.note}
-                          </p>
-                        )}
                       </div>
                       <div className="px-4 pb-4">
                         {h.lat && h.lng ? (
@@ -840,11 +727,7 @@ export default function HousesPage() {
                             <button
                               key={page}
                               onClick={() => goToPage(page)}
-                              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
-                                currentPage === page
-                                  ? "bg-blue-600 text-white"
-                                  : "bg-gray-100 hover:bg-gray-200"
-                              }`}
+                              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${currentPage === page ? "bg-blue-600 text-white" : "bg-gray-100 hover:bg-gray-200"}`}
                             >
                               {page}
                             </button>
@@ -917,13 +800,7 @@ export default function HousesPage() {
         {toasts.map((t) => (
           <div
             key={t.id}
-            className={`flex items-center gap-3 px-4 py-3 rounded-lg shadow-xl text-white text-sm font-medium animate-in slide-in-from-top ${
-              t.type === "success"
-                ? "bg-green-600"
-                : t.type === "error"
-                  ? "bg-red-600"
-                  : "bg-blue-600"
-            }`}
+            className={`flex items-center gap-3 px-4 py-3 rounded-lg shadow-xl text-white text-sm font-medium animate-in slide-in-from-top ${t.type === "success" ? "bg-green-600" : t.type === "error" ? "bg-red-600" : "bg-blue-600"}`}
           >
             {t.type === "success" && <Plus className="w-5 h-5" />}
             {t.type === "error" && <AlertCircle className="w-5 h-5" />}
@@ -933,25 +810,27 @@ export default function HousesPage() {
         ))}
       </div>
 
-      {/* ตัวกรอง Modal */}
+      {/* ตัวกรอง Modal - เพิ่ม บ้านเลขที่ + เบอร์โทร */}
       {showFilterModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 text-gray-800">
           <div
             ref={filterModalRef}
             className="bg-white rounded-2xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto"
           >
-            <h2 className="text-xl font-bold mb-5 text-center">ตัวกรองบ้าน</h2>
+            <h2 className="text-xl font-bold mb-5 text-center">
+              ตัวกรองบ้าน (ครบทุกอย่าง)
+            </h2>
             <div className="space-y-4">
               <input
                 type="text"
-                placeholder="บ้านเลขที่"
+                placeholder="บ้านเลขที่ (เช่น 123, 45/6)"
                 value={houseNumberFilter}
                 onChange={(e) => setHouseNumberFilter(e.target.value)}
                 className="w-full px-4 py-2.5 text-sm border-2 border-amber-300 rounded-xl focus:border-amber-500 focus:outline-none font-medium"
               />
               <input
                 type="text"
-                placeholder="เบอร์โทร"
+                placeholder="เบอร์โทร (บางส่วนก็ได้)"
                 value={phoneFilter}
                 onChange={(e) =>
                   setPhoneFilter(e.target.value.replace(/\D/g, ""))
@@ -960,7 +839,7 @@ export default function HousesPage() {
               />
               <input
                 type="text"
-                placeholder="หมู่ที่ (แค่เลข)"
+                placeholder="หมู่ที่ (แค่เลข เช่น 1, 8)"
                 value={villageFilter}
                 onChange={(e) =>
                   setVillageFilter(e.target.value.replace(/[^\d]/g, ""))
@@ -1013,12 +892,12 @@ export default function HousesPage() {
         </div>
       )}
 
-      {/* Modal เพิ่ม/แก้ไข */}
+      {/* Modal เพิ่ม/แก้ไข, CSV Example ฯลฯ ยังเหมือนเดิมทั้งหมด */}
       {(showAdd || showEditModal) && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 text-gray-800">
           <div
             ref={addEditModalRef}
-            className="bg-white rounded-2xl p-6 max-w-sm w-full max-h-[90vh] overflow-y-auto"
+            className="bg-white rounded-2xl p-6 max-w-sm w-full"
           >
             <h2 className="text-xl font-bold mb-5">
               {showAdd ? "เพิ่มบ้านใหม่" : "แก้ไขบ้าน"}
@@ -1038,54 +917,13 @@ export default function HousesPage() {
                 onChange={(e) => setPhone(e.target.value)}
                 className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none"
               />
-
-              <div className="relative">
-                <textarea
-                  ref={addressInputRef}
-                  placeholder="บ้านเลขที่ (เช่น 15/9 แล้วเว้นวรรคเลือกหมู่)"
-                  value={address}
-                  onChange={handleAddressChange}
-                  rows={3}
-                  className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none resize-none"
-                />
-                {showVillageDropdown && (
-                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-xl shadow-lg max-h-40 overflow-y-auto">
-                    {villages.map((v) => (
-                      <div
-                        key={v}
-                        className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => selectVillage(v)}
-                      >
-                        หมู่ {v}
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {showSubdistrictDropdown && (
-                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-xl shadow-lg max-h-40 overflow-y-auto">
-                    {subdistricts.map((s) => (
-                      <div
-                        key={s}
-                        className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => selectSubdistrict(s)}
-                      >
-                        ต.{s}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
               <textarea
-                placeholder="หมายเหตุ (เช่น ข้างศูนย์เด็กเล็ก, หลังอบต., บ้านสีฟ้า, ใกล้โรงเรียน)"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
+                placeholder="ที่อยู่เต็ม"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
                 rows={2}
                 className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none resize-none"
               />
-
               <button
                 onClick={detectLocation}
                 disabled={isDetecting}
@@ -1098,16 +936,13 @@ export default function HousesPage() {
                 )}
                 {isDetecting ? "กำลังตรวจจับ..." : "ตรวจจับตำแหน่งปัจจุบัน"}
               </button>
-
               <input
                 type="text"
-                placeholder="พิกัด (lat,lng) เช่น 16.123456,99.123456"
+                placeholder="พิกัด (lat,lng)"
                 value={coordInput}
                 onChange={(e) => {
                   setCoordInput(e.target.value);
-                  const [latStr, lngStr] = e.target.value.split(",");
-                  const lat = parseFloat(latStr);
-                  const lng = parseFloat(lngStr);
+                  const [lat, lng] = e.target.value.split(",").map(parseFloat);
                   if (!isNaN(lat) && !isNaN(lng)) {
                     setDetectedLat(lat);
                     setDetectedLng(lng);
@@ -1118,7 +953,6 @@ export default function HousesPage() {
                 }}
                 className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none"
               />
-
               {detectedLat && detectedLng && (
                 <div className="text-center -mt-2">
                   <button
@@ -1129,7 +963,6 @@ export default function HousesPage() {
                   </button>
                 </div>
               )}
-
               <div className="flex gap-3 pt-4">
                 <button
                   onClick={() => {
@@ -1168,7 +1001,9 @@ export default function HousesPage() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-center mb-4">
-              <h3 className="font-bold text-lg">ตัวอย่าง CSV (มีหมายเหตุ)</h3>
+              <h3 className="font-bold text-lg">
+                ตัวอย่าง CSV สำหรับเพิ่มบ้าน
+              </h3>
               <button
                 onClick={() => setShowCsvExample(false)}
                 className="text-gray-500 hover:text-gray-700"
@@ -1177,15 +1012,18 @@ export default function HousesPage() {
               </button>
             </div>
             <pre className="bg-gray-100 p-4 rounded-lg text-xs font-mono overflow-x-auto whitespace-pre-wrap">
-              {`full_name,phone,address,note
-สมชาย ใจดี,0812345678,"123 หมู่ 1 ต.นาโบสถ์ อ.วังเจ้า จ.ตาก","ข้างศูนย์เด็กเล็ก"
-สมศรี สุขใจ,0898765432,"456 หมู่ 5 ต.แม่กาษา อ.เมืองตาก จ.ตาก","หลังอบต. ใกล้วัด"`}
+              {`full_name,phone,address
+สมชาย ใจดี,0812345678,"123 หมู่ 1 ต.นาโบสถ์ อ.วังเจ้า จ.ตาก"
+สมศรี สุขใจ,0898765432,"456 หมู่ 5 ต.แม่กาษา อ.เมืองตาก จ.ตาก"`}
             </pre>
+            <p className="text-xs text-gray-500 mt-3">
+              ใช้ " " ล้อมที่อยู่ที่มี comma
+            </p>
             <button
               onClick={downloadCsvExample}
               className="w-full mt-3 bg-blue-600 text-white py-2 rounded-lg text-sm hover:bg-blue-700 flex items-center justify-center gap-2"
             >
-              <FileSpreadsheet className="w-4 h-4" /> ดาวน์โหลดตัวอย่าง
+              <FileSpreadsheet className="w-4 h-4" /> โหลดไฟล์ CSV ตัวอย่าง
             </button>
           </div>
         </div>
