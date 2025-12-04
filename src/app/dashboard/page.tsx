@@ -1,108 +1,124 @@
-// src/app/dashboard/page.tsx
 "use client";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import {
   Home,
   MapPin,
-  PackageCheck,
-  PackageX,
-  Plus,
   Upload,
-  RefreshCw,
-  User,
+  AlertCircle,
+  Clock,
+  TrendingUp,
 } from "lucide-react";
-
-interface TodayHouse {
-  id: string;
-  full_name: string;
-  phone: string;
-  address: string;
-  delivered: boolean;
-  created_at: string;
-}
 
 export default function DashboardPage() {
   const [totalHouses, setTotalHouses] = useState(0);
-  const [deliveredToday, setDeliveredToday] = useState(0);
-  const [remainingToday, setRemainingToday] = useState(0);
-  const [recentHouses, setRecentHouses] = useState<TodayHouse[]>([]);
+  const [todayHouses, setTodayHouses] = useState(0);
+  const [pendingHouses, setPendingHouses] = useState(0);
   const [userName, setUserName] = useState("เพื่อน");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState(new Date());
+  const [recentActivities, setRecentActivities] = useState<
+    { action: string; time: string }[]
+  >([]);
+  const [coordPercent, setCoordPercent] = useState(0);
 
-  // Fetch data function
+  // Helper: Format time ago
+  const formatTimeAgo = (dateString: string): string => {
+    const now = new Date();
+    const date = new Date(dateString);
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffMins < 1) return "เมื่อกี้";
+    if (diffMins < 60) return `${diffMins} นาทีที่แล้ว`;
+    if (diffHours < 24) return `${diffHours} ชั่วโมงที่แล้ว`;
+    return `${diffDays} วันที่แล้ว`;
+  };
+
+  // Fetch data function - ขยายด้วย pending, coord %, และ recent activities
   const fetchData = async () => {
     try {
       setLoading(true);
       setError(null);
-
       // ดึง user name
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (user) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("full_name")
-          .eq("id", user.id)
-          .single();
-        setUserName(profile?.full_name || "เพื่อน");
-      }
-
-      // ดึงจำนวนบ้านทั้งหมดจาก houses
+      setUserName(user?.email?.split("@")[0] || "เพื่อน");
+      // ดึงจำนวนบ้านทั้งหมด
       const { count: totalCount } = await supabase
         .from("houses")
         .select("*", { count: "exact", head: true });
       setTotalHouses(totalCount || 0);
-
-      // ดึงจำนวนที่ส่งแล้ววันนี้จาก today_houses
-      const { count: deliveredCount } = await supabase
-        .from("today_houses")
+      // ดึงจำนวนงานวันนี้
+      const { data: todayData } = await supabase.rpc(
+        "refresh_and_merge_today_houses",
+      );
+      setTodayHouses(todayData?.length || 0);
+      // ดึงจำนวนงานค้าง (pending)
+      const { count: pendingCount } = await supabase
+        .from("pending_houses")
+        .select("*", { count: "exact", head: true });
+      setPendingHouses(pendingCount || 0);
+      // คำนวณ % บ้านที่มีพิกัด - แก้ TS error โดยใช้ || 0 กับทั้ง totalCount และ withCoordsCount
+      const { count: withCoordsCount } = await supabase
+        .from("houses")
         .select("*", { count: "exact", head: true })
-        .eq("delivered", true);
-      setDeliveredToday(deliveredCount || 0);
-
-      // ดึงจำนวนที่เหลือส่งวันนี้จาก today_houses
-      const { count: remainingCount } = await supabase
-        .from("today_houses")
-        .select("*", { count: "exact", head: true })
-        .eq("delivered", false);
-      setRemainingToday(remainingCount || 0);
-
-      // ดึง recent houses (top 5 ล่าสุด)
-      const { data: recentData } = await supabase
-        .from("today_houses")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(5);
-      setRecentHouses(recentData || []);
+        .gt("lat", 0);
+      const safeTotal = totalCount || 0;
+      const safeWithCoords = withCoordsCount || 0;
+      setCoordPercent(
+        safeTotal > 0 ? Math.round((safeWithCoords / safeTotal) * 100) : 0,
+      );
+      // ดึง recent activities (สมมติมี table audits: {action: string, created_at: string})
+      const { data: activities } = await supabase
+        .from("audits") // ถ้าไม่มี table นี้ สามารถ mock ด้วย [] หรือสร้างใน Supabase
+        .select("action, created_at")
+        .limit(5)
+        .order("created_at", { ascending: false });
+      setRecentActivities(
+        activities?.map((a: any) => ({
+          action: a.action || "เพิ่มบ้านใหม่",
+          time: formatTimeAgo(a.created_at),
+        })) || [],
+      );
     } catch (err) {
       console.error("Error fetching dashboard data:", err);
-      setError("โหลดข้อมูลไม่สำเร็จ ลองรีเฟรชอีกครั้ง");
+      setError("โหลดข้อมูลไม่สำเร็จ ลองรีเฟรชเบราว์เซอร์อีกครั้ง");
     } finally {
       setLoading(false);
+      setLastUpdated(new Date());
     }
   };
 
-  // Initial load และ auto-refresh ทุก 30 วินาที
+  // Initial load เท่านั้น (ไม่มี auto-refresh)
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 30000); // 30s
-    return () => clearInterval(interval);
   }, []);
 
-  // Progress percentage
-  const progressPercent =
-    remainingToday + deliveredToday > 0
-      ? Math.round((deliveredToday / (remainingToday + deliveredToday)) * 100)
-      : 0;
+  // Personalized tip จาก data
+  const getTip = () => {
+    if (todayHouses > 15) {
+      return "งานวันนี้เยอะ! ลองเรียงเส้นทางก่อนออกเดินทางนะ";
+    }
+    if (pendingHouses > 5) {
+      return `มีงานค้าง ${pendingHouses} รายการ ลองดึงมาใช้ดู`;
+    }
+    if (coordPercent < 70) {
+      return `มีบ้าน ${100 - coordPercent}% ที่ยังไม่มีพิกัด ลองเพิ่มดู`;
+    }
+    return null;
+  };
+
+  const tip = getTip();
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
-        <div className="text-lg text-gray-500 flex items-center gap-2">
-          <RefreshCw className="w-5 h-5 animate-spin" />
+      <div className="flex items-center justify-center min-h-[calc(100vh-4rem)] p-4">
+        <div className="text-base sm:text-lg text-gray-500 flex items-center gap-2">
+          <Clock className="w-5 h-5 animate-spin" />
           กำลังโหลดข้อมูล...
         </div>
       </div>
@@ -110,139 +126,115 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      {/* Header with Welcome */}
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold text-gray-800 flex items-center gap-2">
-          <Home className="w-10 h-10 text-blue-600" />
-          ยินดีต้อนรับกลับ, {userName}!
-        </h1>
-        <p className="text-gray-600 mt-2">
-          วันนี้มีงานส่ง {remainingToday} ชิ้น รีเฟรชอัตโนมัติทุก 30 วินาที
-        </p>
+    <div className="p-4 sm:p-6 max-w-7xl mx-auto">
+      {/* Header with Welcome + Last Updated */}
+      <div className="mb-6 sm:mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex flex-col">
+          <h1 className="text-2xl sm:text-4xl font-bold text-gray-800 flex items-center gap-2">
+            <Home className="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" />
+            ยินดีต้อนรับกลับ {userName}
+          </h1>
+          <p className="text-gray-600 mt-1 sm:mt-2 text-sm sm:text-base">
+            วันนี้มีงาน {todayHouses} รายการ
+          </p>
+          <p className="text-xs text-gray-400 mt-1">
+            อัพเดทล่าสุด: {lastUpdated.toLocaleTimeString("th-TH")}
+          </p>
+        </div>
         {error && <p className="text-red-600 mt-2 text-sm">{error}</p>}
-        <button
-          onClick={fetchData}
-          className="mt-4 flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-        >
-          <RefreshCw className="w-4 h-4" />
-          รีเฟรชข้อมูล
-        </button>
       </div>
 
-      {/* Quick Actions */}
-      <div className="mb-8 grid grid-cols-2 md:grid-cols-4 gap-4">
+      {/* Personalized Tip Banner */}
+      {tip && (
+        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl flex items-center gap-3">
+          <AlertCircle className="w-5 h-5 text-blue-600 shrink-0" />
+          <p className="text-sm text-blue-800">{tip}</p>
+        </div>
+      )}
+
+      {/* Quick Actions - รองรับมือถือ */}
+      <div className="mb-6 sm:mb-8 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
         <a
           href="/dashboard/houses"
-          className="flex flex-col items-center p-4 bg-white rounded-xl shadow-lg hover:shadow-xl transition"
+          className="flex flex-col items-center p-4 bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 text-center"
         >
-          <Plus className="w-8 h-8 text-blue-600 mb-2" />
+          <MapPin className="w-8 h-8 text-blue-600 mb-2" />
           <span className="text-sm font-medium text-gray-700">
-            เพิ่มบ้านใหม่
+            คลังบ้าน ({totalHouses})
           </span>
         </a>
         <a
-          href="/dashboard/routes"
-          className="flex flex-col items-center p-4 bg-white rounded-xl shadow-lg hover:shadow-xl transition"
+          href="/dashboard/routes/navigate"
+          className="flex flex-col items-center p-4 bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 text-center"
         >
           <MapPin className="w-8 h-8 text-green-600 mb-2" />
           <span className="text-sm font-medium text-gray-700">
-            ดูเส้นทางวันนี้
+            เส้นทางวันนี้ ({todayHouses})
           </span>
         </a>
         <a
           href="/dashboard/routes/upload"
-          className="flex flex-col items-center p-4 bg-white rounded-xl shadow-lg hover:shadow-xl transition"
+          className="flex flex-col items-center p-4 bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 text-center"
         >
           <Upload className="w-8 h-8 text-purple-600 mb-2" />
           <span className="text-sm font-medium text-gray-700">อัพโหลด CSV</span>
         </a>
-        <button
-          onClick={() => (window.location.href = "/dashboard/houses")}
-          className="flex flex-col items-center p-4 bg-white rounded-xl shadow-lg hover:shadow-xl transition"
-        >
-          <User className="w-8 h-8 text-indigo-600 mb-2" />
-          <span className="text-sm font-medium text-gray-700">
-            จัดการคลังบ้าน
-          </span>
-        </button>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-white p-8 rounded-xl shadow-lg text-center">
-          <MapPin className="w-12 h-12 text-blue-600 mx-auto mb-4" />
-          <h3 className="text-5xl font-bold text-blue-600">{totalHouses}</h3>
-          <p className="text-gray-600 mt-2">บ้านทั้งหมดในคลัง</p>
-        </div>
-        <div className="bg-white p-8 rounded-xl shadow-lg text-center">
-          <PackageCheck className="w-12 h-12 text-green-600 mx-auto mb-4" />
-          <h3 className="text-5xl font-bold text-green-600">
-            {deliveredToday}
+      {/* Expanded Summary Cards - 4 cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
+        <div className="bg-white p-6 sm:p-8 rounded-xl shadow-lg text-center">
+          <MapPin className="w-10 h-10 sm:w-12 sm:h-12 text-blue-600 mx-auto mb-3 sm:mb-4" />
+          <h3 className="text-4xl sm:text-5xl font-bold text-blue-600 mb-2">
+            {totalHouses}
           </h3>
-          <p className="text-gray-600 mt-2">ส่งแล้ววันนี้</p>
-          {/* Progress Bar */}
-          <div className="mt-4 bg-gray-200 rounded-full h-3">
-            <div
-              className="bg-green-600 h-3 rounded-full transition-all duration-300"
-              style={{ width: `${progressPercent}%` }}
-            ></div>
-          </div>
-          <p className="text-sm text-gray-500 mt-1">
-            {progressPercent}% สำเร็จ
+          <p className="text-gray-600 text-sm sm:text-base">
+            บ้านทั้งหมดในคลัง
           </p>
         </div>
-        <div className="bg-white p-8 rounded-xl shadow-lg text-center">
-          <PackageX className="w-12 h-12 text-orange-600 mx-auto mb-4" />
-          <h3 className="text-5xl font-bold text-orange-600">
-            {remainingToday}
+        <div className="bg-white p-6 sm:p-8 rounded-xl shadow-lg text-center">
+          <MapPin className="w-10 h-10 sm:w-12 sm:h-12 text-green-600 mx-auto mb-3 sm:mb-4" />
+          <h3 className="text-4xl sm:text-5xl font-bold text-green-600 mb-2">
+            {todayHouses}
           </h3>
-          <p className="text-gray-600 mt-2">เหลือส่งวันนี้</p>
+          <p className="text-gray-600 text-sm sm:text-base">งานวันนี้</p>
+        </div>
+        <div className="bg-white p-6 sm:p-8 rounded-xl shadow-lg text-center">
+          <AlertCircle className="w-10 h-10 sm:w-12 sm:h-12 text-orange-600 mx-auto mb-3 sm:mb-4" />
+          <h3 className="text-4xl sm:text-5xl font-bold text-orange-600 mb-2">
+            {pendingHouses}
+          </h3>
+          <p className="text-gray-600 text-sm sm:text-base">งานค้าง</p>
+        </div>
+        <div className="bg-white p-6 sm:p-8 rounded-xl shadow-lg text-center">
+          <TrendingUp className="w-10 h-10 sm:w-12 sm:h-12 text-purple-600 mx-auto mb-3 sm:mb-4" />
+          <h3 className="text-4xl sm:text-5xl font-bold text-purple-600 mb-2">
+            {coordPercent}%
+          </h3>
+          <p className="text-gray-600 text-sm sm:text-base">บ้านมีพิกัด</p>
         </div>
       </div>
 
-      {/* Recent Activity */}
-      <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-        <div className="p-6 border-b border-gray-200">
-          <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-            กิจกรรมล่าสุด (วันนี้)
-          </h2>
+      {/* Recent Activities Section */}
+      {recentActivities.length > 0 && (
+        <div className="bg-white p-6 sm:p-8 rounded-xl shadow-lg">
+          <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+            <Clock className="w-5 h-5" />
+            กิจกรรมล่าสุด
+          </h3>
+          <ul className="space-y-3">
+            {recentActivities.slice(0, 5).map((activity, index) => (
+              <li
+                key={index}
+                className="flex justify-between items-center text-sm text-gray-600 border-b border-gray-100 pb-2 last:border-b-0"
+              >
+                <span>{activity.action}</span>
+                <span className="text-xs text-gray-400">{activity.time}</span>
+              </li>
+            ))}
+          </ul>
         </div>
-        <div className="divide-y divide-gray-200">
-          {recentHouses.length > 0 ? (
-            recentHouses.map((house) => (
-              <div key={house.id} className="p-4 hover:bg-gray-50 transition">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-900 truncate">
-                      {house.full_name}
-                    </p>
-                    <p className="text-sm text-gray-600 truncate">
-                      {house.address}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-1">{house.phone}</p>
-                  </div>
-                  <div className="ml-4 text-right">
-                    <span
-                      className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        house.delivered
-                          ? "bg-green-100 text-green-800"
-                          : "bg-orange-100 text-orange-800"
-                      }`}
-                    >
-                      {house.delivered ? "ส่งแล้ว" : "รอดำเนินการ"}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="p-8 text-center text-gray-500">
-              ยังไม่มีกิจกรรมวันนี้ ลองเพิ่มงานส่งดู!
-            </div>
-          )}
-        </div>
-      </div>
+      )}
     </div>
   );
 }
