@@ -4,7 +4,7 @@ export type Json =
   | number
   | boolean
   | null
-  | { [key: string]: Json }
+  | { [key: string]: Json | undefined }
   | Json[];
 
 export interface Database {
@@ -13,20 +13,39 @@ export interface Database {
       houses: {
         Row: {
           id: string;
-          user_id: string;
           full_name: string;
           phone: string;
           address: string;
           lat: number | null;
           lng: number | null;
-          delivered: boolean;
-          delivered_at: string | null;
+          note: string;
           created_at: string;
-          updated_at: string | null;
+          updated_at: string;
         };
-        Insert: any;
-        Update: any;
+        Insert: {
+          id?: string;
+          full_name: string;
+          phone: string;
+          address: string;
+          lat?: number | null;
+          lng?: number | null;
+          note?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          full_name?: string;
+          phone?: string;
+          address?: string;
+          lat?: number | null;
+          lng?: number | null;
+          note?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
       };
+
       today_houses: {
         Row: {
           id: string;
@@ -36,21 +55,109 @@ export interface Database {
           address: string;
           lat: number | null;
           lng: number | null;
+          note: string; // เพิ่ม note
           order_index: number;
-          delivered: boolean;
-          delivered_at: string | null;
           created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          full_name: string;
+          phone: string;
+          address: string;
+          lat?: number | null;
+          lng?: number | null;
+          note?: string | null; // เพิ่ม note
+          order_index?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          // เหมือน Insert แต่ทุก field ไม่บังคับ
+          id?: string;
+          user_id?: string;
+          full_name?: string;
+          phone?: string;
+          address?: string;
+          lat?: number | null;
+          lng?: number | null;
+          note?: string | null; // เพิ่ม note
+          order_index?: number;
+          created_at?: string;
+          updated_at?: string;
         };
       };
-      start_point: {
+
+      pending_houses: {
         Row: {
-          id: number;
+          id: string;
           user_id: string;
-          name: string;
+          full_name: string;
+          phone: string;
+          address: string;
+          lat: number | null;
+          lng: number | null;
+          note: string; // เพิ่ม note
+          order_index: number;
+          created_at: string;
+          updated_at: string;
+          original_date: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          full_name: string;
+          phone: string;
+          address: string;
+          lat?: number | null;
+          lng?: number | null;
+          note?: string | null;
+          order_index?: number;
+          created_at?: string;
+          updated_at?: string;
+          original_date: string;
+        };
+        Update: {
+          note?: string | null;
+          // อื่น ๆ เหมือน Insert
+        };
+      };
+
+      start_positions: {
+        Row: {
+          id: string;
+          user_id: string;
           lat: number;
           lng: number;
+          name: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          lat: number;
+          lng: number;
+          name?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          lat?: number;
+          lng?: number;
+          name?: string | null;
         };
       };
+    };
+    Views: {
+      [_ in never]: never;
+    };
+    Functions: {
+      [_ in never]: never;
+    };
+    Enums: {
+      [_ in never]: never;
     };
   };
 }
