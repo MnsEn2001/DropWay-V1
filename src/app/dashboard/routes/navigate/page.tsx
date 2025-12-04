@@ -355,7 +355,7 @@ export default function NavigatePage() {
     if (!user) return;
     try {
       const { data } = await supabase.rpc("refresh_and_merge_today_houses");
-      // 2. แก้ใน refreshData() ให้รับ note ด้วย (หาบรรทัดนี้แล้วแก้)
+
       setHouses(
         (data || []).map((h: any) => ({
           id: h.id,
@@ -365,7 +365,7 @@ export default function NavigatePage() {
           address: h.address,
           lat: h.lat ? Number(h.lat) : null,
           lng: h.lng ? Number(h.lng) : null,
-          note: h.note || "", // เพิ่มบรรทัดนี้
+          note: h.note || "", // ✅ เพิ่มตรงนี้
           order_index: Number(h.order_index),
           created_at: h.created_at,
           updated_at: h.updated_at,
@@ -453,6 +453,7 @@ export default function NavigatePage() {
             .eq("id", h.id),
         ),
       );
+
       setHouses(final);
     } catch {
       addToast("เรียงลำดับไม่สำเร็จ", "error");

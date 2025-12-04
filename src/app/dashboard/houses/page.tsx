@@ -357,6 +357,7 @@ export default function HousesPage() {
       address: house.address,
       lat: house.lat || null,
       lng: house.lng || null,
+      note: null,
       order_index: 0,
     });
     if (error) addToast("เพิ่มเข้ารับงานไม่สำเร็จ: " + error.message, "error");
