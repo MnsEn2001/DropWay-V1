@@ -818,31 +818,27 @@ export default function NavigatePage() {
 
             {/* Search + ปุ่มลบ + ปุ่มกรอง */}
             <div className="flex gap-3 mt-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <div className="relative flex-1 text-gray-800">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+
                 <input
                   type="text"
-                  placeholder={`ค้นหา${activeTab === "today" ? "ชื่อ, เบอร์, ที่อยู่" : "ชื่อ, เบอร์, ที่อยู่, เหตุผล"}...`}
+                  placeholder={`ค้นหา ${
+                    activeTab === "today"
+                      ? "ชื่อ, เบอร์, ที่อยู่"
+                      : "ชื่อ, เบอร์, ที่อยู่, เหตุผล"
+                  }...`}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-11 pr-4 py-3 border rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                  className="w-full pl-10 pr-12 py-2.5 text-sm border border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none transition font-medium"
                 />
-              </div>
 
-              <div className="flex gap-2">
-                <button
-                  onClick={deleteAllInCurrentTab}
-                  className="px-5 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl transition"
-                  title={`ลบทั้งหมดในแท็บ "${activeTab === "today" ? "วันนี้" : "รายงานแล้ว"}"`}
-                >
-                  <Trash2 className="w-5 h-5" />
-                </button>
-
+                {/* ปุ่มกรอง */}
                 <button
                   onClick={() => setShowFilterModal(true)}
-                  className="px-5 py-3 bg-purple-600 text-white rounded-xl"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition"
                 >
-                  <Filter className="w-5 h-5" />
+                  <Filter className="w-4 h-4 text-gray-700" />
                 </button>
               </div>
             </div>
@@ -865,11 +861,11 @@ export default function NavigatePage() {
         )}
 
         {/* Tabs */}
-        <div className="max-w-7xl mx-auto px-4 mt-6">
-          <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
+        <div className="max-w-7xl mx-auto px-4 mt-4">
+          <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
             <button
               onClick={() => setActiveTab("today")}
-              className={`flex-1 py-3 rounded-lg font-bold transition ${
+              className={`flex-1 py-2 rounded-md font-medium text-sm transition ${
                 activeTab === "today"
                   ? "bg-white shadow text-indigo-600"
                   : "text-gray-600"
@@ -877,9 +873,10 @@ export default function NavigatePage() {
             >
               วันนี้ ({displayedHouses.length})
             </button>
+
             <button
               onClick={() => setActiveTab("reported")}
-              className={`flex-1 py-3 rounded-lg font-bold transition ${
+              className={`flex-1 py-2 rounded-md font-medium text-sm transition ${
                 activeTab === "reported"
                   ? "bg-white shadow text-red-600"
                   : "text-gray-600"

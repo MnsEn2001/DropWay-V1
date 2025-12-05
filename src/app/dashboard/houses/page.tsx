@@ -21,6 +21,7 @@ import {
   X,
   Copy,
   Download,
+  ChevronDown,
 } from "lucide-react";
 import Papa from "papaparse";
 
@@ -117,7 +118,7 @@ export default function HousesPage() {
   const [selectedSubdistrict, setSelectedSubdistrict] = useState<string | null>(
     null,
   );
-
+  const [showTabMenu, setShowTabMenu] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -671,7 +672,7 @@ export default function HousesPage() {
   return (
     <>
       <div className="max-w-7xl mx-auto px-4 py-6 pb-24 lg:pb-8">
-        <div className="mb-7 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 py-12">
+        <div className="mb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-4 pb-2">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
               คลังบ้าน
@@ -680,6 +681,7 @@ export default function HousesPage() {
               บ้าน {filteredAndSorted.length} หลังคาเรือน
             </p>
           </div>
+
           <div className="flex gap-3">
             <button
               onClick={downloadAllHousesCsv}
@@ -687,31 +689,58 @@ export default function HousesPage() {
               className="flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white text-sm font-semibold rounded-xl hover:bg-green-700 transition shadow-md disabled:opacity-60"
             >
               <Download className="w-4 h-4" />
-              {downloading ? "กำลังดาวน์โหลด..." : "ดาวน์โหลด CSV ทั้งหมด"}
+              {downloading ? "กำลังโหลด..." : "โหลด CSV"}
             </button>
+
             <button
               onClick={() => setShowAdd(true)}
               className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 transition shadow-md"
             >
               <Plus className="w-4 h-4" /> เพิ่มบ้าน
             </button>
-          </div>
-        </div>
 
-        {/* Tabs */}
-        <div className="flex bg-white rounded-2xl shadow-sm overflow-hidden mb-6">
-          <button
-            onClick={() => setActiveTab("list")}
-            className={`flex-1 py-2.5 font-medium text-xs transition ${activeTab === "list" ? "bg-blue-600 text-white" : "text-gray-600 hover:bg-gray-100"}`}
-          >
-            <Search className="w-4 h-4 mx-auto mb-0.5" /> รายการ
-          </button>
-          <button
-            onClick={() => setActiveTab("csv")}
-            className={`flex-1 py-2.5 font-medium text-xs transition ${activeTab === "csv" ? "bg-blue-600 text-white" : "text-gray-600 hover:bg-gray-100"}`}
-          >
-            <FileSpreadsheet className="w-4 h-4 mx-auto mb-0.5" /> CSV
-          </button>
+            <div className="relative">
+              <button
+                onClick={() => setShowTabMenu((prev) => !prev)}
+                className="flex items-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 text-sm font-medium rounded-xl border border-gray-300 hover:bg-gray-200 transition"
+              >
+                เลือกโหมด
+                <ChevronDown className="w-4 h-4" />
+              </button>
+
+              {showTabMenu && (
+                <div className="absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-xl shadow-lg py-1 z-50">
+                  <button
+                    onClick={() => {
+                      setActiveTab("list");
+                      setShowTabMenu(false);
+                    }}
+                    className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-100 ${
+                      activeTab === "list"
+                        ? "font-semibold text-blue-600"
+                        : "text-gray-700"
+                    }`}
+                  >
+                    รายชื่อบ้านทั้งหมด
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setActiveTab("csv");
+                      setShowTabMenu(false);
+                    }}
+                    className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-100 ${
+                      activeTab === "csv"
+                        ? "font-semibold text-blue-600"
+                        : "text-gray-700"
+                    }`}
+                  >
+                    เพิ่มบ้านใหม่ด้วย CSV
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
         {activeTab === "list" && (
@@ -720,6 +749,7 @@ export default function HousesPage() {
             <div className="flex flex-col sm:flex-row gap-3 mb-6">
               <div className="relative flex-1 text-gray-800">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+
                 <input
                   type="text"
                   placeholder="ค้นหาทุกอย่าง (ชื่อ, เบอร์, ที่อยู่, พิกัด...)"
@@ -728,15 +758,17 @@ export default function HousesPage() {
                     setSearch(e.target.value);
                     setCurrentPage(1);
                   }}
-                  className="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none transition font-medium"
+                  className="w-full pl-10 pr-12 py-2.5 text-sm border border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none transition font-medium"
                 />
+
+                {/* ปุ่มตัวกรองแบบไอคอน */}
+                <button
+                  onClick={() => setShowFilterModal(true)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition"
+                >
+                  <Filter className="w-4 h-4 text-gray-700" />
+                </button>
               </div>
-              <button
-                onClick={() => setShowFilterModal(true)}
-                className="flex items-center gap-2 px-5 py-2.5 bg-linear-to-r from-purple-600 to-pink-600 text-white text-sm font-medium rounded-xl hover:from-purple-700 hover:to-pink-700 transition"
-              >
-                <Filter className="w-4 h-4" /> ตัวกรอง
-              </button>
             </div>
 
             {/* Group options */}
@@ -754,6 +786,7 @@ export default function HousesPage() {
                 />
                 <span className="font-medium">จัดกลุ่มตามบ้านเลขที่</span>
               </label>
+
               <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
                 <input
                   type="checkbox"
@@ -767,6 +800,7 @@ export default function HousesPage() {
                 />
                 <span className="font-medium">จัดกลุ่มตามพื้นที่ใกล้เคียง</span>
               </label>
+
               <label className="flex items-center gap-1 text-sm text-gray-600 cursor-pointer">
                 <input
                   type="checkbox"
@@ -779,6 +813,7 @@ export default function HousesPage() {
                 />
                 ยังไม่เพิ่มพิกัด
               </label>
+
               <label className="flex items-center gap-1 text-sm text-gray-600 cursor-pointer">
                 <input
                   type="checkbox"
