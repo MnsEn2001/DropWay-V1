@@ -1,8 +1,7 @@
-// src/lib/supabase/client.ts   (ถูกต้องแล้ว)
-import { createClient } from "@supabase/supabase-js";
-import type { Database } from "@/types/supabase";
+// src/lib/supabase/client.ts   ← แทนที่ไฟล์เดิมทั้งหมด
+import { createBrowserClient } from "@supabase/ssr";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
+export const supabase = createBrowserClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+);
