@@ -497,6 +497,7 @@ export default function NavigatePage() {
       await supabase.from("today_houses").delete().eq("id", reportingHouse.id);
       setHouses((prev) => prev.filter((h) => h.id !== reportingHouse.id));
       addToast("รายงานสำเร็จ", "success");
+      window.location.reload();
       if (activeTab === "reported") loadReportedHouses();
     } catch {
       addToast("รายงานไม่สำเร็จ", "error");
@@ -1354,7 +1355,6 @@ export default function NavigatePage() {
             </div>
           </div>
         )}
-        // ถ้าต้องการเพิ่ม modal สำหรับ manual position ด้วย (จาก warning GPS)
         {showManualModal && (
           <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl p-6 max-w-sm w-full">
