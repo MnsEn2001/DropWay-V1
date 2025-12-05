@@ -24,7 +24,6 @@ export function Navbar() {
   // ดึงสถานะล็อกอิน + ติดตามการเปลี่ยนแปลง
   useEffect(() => {
     let mounted = true;
-
     const initAuth = async () => {
       const {
         data: { user },
@@ -34,9 +33,7 @@ export function Navbar() {
         setLoading(false);
       }
     };
-
     initAuth();
-
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -45,7 +42,6 @@ export function Navbar() {
         setLoading(false);
       }
     });
-
     return () => {
       mounted = false;
       subscription.unsubscribe();
@@ -74,12 +70,22 @@ export function Navbar() {
         { href: "/signup", label: "สมัครสมาชิก", icon: UserIcon },
       ];
 
+  // คำนวณ active item โดยใช้ longest matching prefix เพื่อให้ไฮไลต์เฉพาะเมนูที่เฉพาะเจาะจงที่สุด
+  const activeHref = menuItems.reduce((prev, curr) => {
+    if (
+      pathname.startsWith(curr.href) &&
+      curr.href.length > (prev?.length || 0)
+    ) {
+      return curr.href;
+    }
+    return prev;
+  }, "");
+
   // ซ่อน Navbar ถ้าเป็นหน้า login/signup
   const isAuthPage =
     pathname === "/login" ||
     pathname === "/signup" ||
     pathname === "/forgot-password";
-
   if (isAuthPage || loading) {
     return null; // ไม่แสดงอะไรตอนโหลด หรือตอนอยู่หน้า auth
   }
@@ -101,6 +107,26 @@ export function Navbar() {
               <span className="text-xl font-bold text-gray-900">Dropway</span>
             </Link>
           </div>
+
+          {/* Desktop Navigation */}
+          <nav className="hidden lg:flex items-center gap-8 ml-10">
+            {menuItems.map((item) => {
+              const isActive = item.href === activeHref;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`text-base font-medium transition ${
+                    isActive
+                      ? "text-blue-600 border-b-2 border-blue-600 pb-1"
+                      : "text-gray-600 hover:text-blue-600"
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
+          </nav>
 
           {/* Desktop Buttons */}
           <div className="hidden md:flex items-center gap-4">
@@ -138,26 +164,17 @@ export function Navbar() {
           className="fixed inset-0 z-50 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         >
-          <div
-            className="absolute inset-0 bg-black/50"
-            onClick={(e) => e.stopPropagation()}
-          />
-          <aside
-            className="absolute top-16 left-0 bottom-0 w-72 bg-gray-900 text-white"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="absolute inset-0 bg-black/50" />
+          <aside className="absolute top-16 left-0 bottom-0 w-72 bg-gray-900 text-white">
             <div className="flex flex-col h-full">
               <div className="p-6 border-b border-gray-800">
                 <h1 className="text-2xl font-bold">Dropway</h1>
                 <p className="text-sm text-gray-400">ระบบส่งของจ.ตาก</p>
               </div>
-
               <nav className="flex-1 px-4 py-6 space-y-1">
                 {menuItems.map((item) => {
                   const Icon = item.icon;
-                  const isActive =
-                    pathname === item.href ||
-                    pathname.startsWith(item.href + "/");
+                  const isActive = item.href === activeHref;
                   return (
                     <Link
                       key={item.href}
@@ -175,7 +192,6 @@ export function Navbar() {
                   );
                 })}
               </nav>
-
               {/* Logout button in mobile */}
               {user && (
                 <div className="p-4 border-t border-gray-800">

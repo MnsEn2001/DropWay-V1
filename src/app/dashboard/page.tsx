@@ -124,11 +124,11 @@ export default function DashboardPage() {
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto">
       {/* Header with Welcome + Last Updated */}
-      <div className="mb-6 sm:mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="mb-6 sm:mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 py-15">
         <div className="flex flex-col">
           <h1 className="text-2xl sm:text-4xl font-bold text-gray-800 flex items-center gap-2">
             <Home className="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" />
-            ยินดีต้อนรับกลับ {userName}
+            ยินดีต้อนรับกลับ
           </h1>
           <p className="text-gray-600 mt-1 sm:mt-2 text-sm sm:text-base">
             วันนี้มีงาน {todayHouses} รายการ
