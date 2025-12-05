@@ -1,11 +1,10 @@
-// src/middleware.ts
+// middleware.ts   (สมบูรณ์แบบแล้ว)
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 export const middleware = async (req: NextRequest) => {
   const res = NextResponse.next();
-
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -34,7 +33,6 @@ export const middleware = async (req: NextRequest) => {
   if (pathname.startsWith("/dashboard") && !session) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
-
   if ((pathname === "/login" || pathname === "/signup") && session) {
     return NextResponse.redirect(new URL("/dashboard", req.url));
   }

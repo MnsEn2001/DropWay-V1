@@ -1,17 +1,22 @@
-// src/app/(auth)/login/page.tsx
 "use client";
+
 import { useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError("");
 
     const { error } = await supabase.auth.signInWithPassword({
       email,
@@ -19,14 +24,14 @@ export default function LoginPage() {
     });
 
     if (error) {
-      alert(error.message);
+      setError(error.message);
       setLoading(false);
-    } else {
-      // วิธีนี้ใช้ได้ 100% — รอ 500ms ให้ cookie เซฟเสร็จก่อน
-      setTimeout(() => {
-        window.location.href = "/dashboard";
-      }, 500);
+      return;
     }
+
+    // 2 บรรทัดนี้คือสิ่งที่แก้ปัญหาทั้งหมด
+    router.replace("/dashboard");
+    router.refresh(); // สำคัญมาก! บังคับ middleware รันใหม่ทันที
   };
 
   return (
@@ -58,6 +63,8 @@ export default function LoginPage() {
             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
             required
           />
+
+          {error && <p className="text-red-500 text-center text-sm">{error}</p>}
 
           <button
             type="submit"

@@ -1,12 +1,10 @@
-// src/lib/supabase/server.ts
+// src/lib/supabase/server.ts   (ดีมากแล้ว)
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import type { Database } from "@/types/supabase";
 
-// ต้องเป็น async และ await cookies() ก่อน!
 export async function createServerSupabase() {
-  const cookieStore = await cookies(); // ต้อง await!
-
+  const cookieStore = await cookies();
   return createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
