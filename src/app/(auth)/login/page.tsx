@@ -2,10 +2,12 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation"; // เพิ่มบรรทัดนี้
 import { supabase } from "@/lib/supabase/client";
 import Link from "next/link";
 
 export default function LoginPage() {
+  const router = useRouter(); // เพิ่มบรรทัดนี้
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -16,17 +18,18 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { error: loginError } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
-    if (error) {
-      setError(error.message);
+    if (loginError) {
+      setError(loginError.message);
       setLoading(false);
     } else {
-      // วิธีเดียวที่เนียน 100%, ไม่กระพริบ, ไม่โหลดซ้ำ, ไม่มี 304 spam
-      window.location.href = "/dashboard";
+      // วิธีที่ดีที่สุดในปี 2025 สำหรับ Vercel + Next.js 16
+      router.replace("/dashboard"); // เปลี่ยนหน้าแบบไม่เพิ่ม history
+      router.refresh(); // บังคับให้ Server Components (layout, Navbar) โหลด session ใหม่ทันที
     }
   };
 
