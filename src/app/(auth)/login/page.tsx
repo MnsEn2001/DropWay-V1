@@ -22,8 +22,10 @@ export default function LoginPage() {
       alert(error.message);
       setLoading(false);
     } else {
-      // สำคัญมาก! ใช้ window.location แทน router.push → ใช้ได้ 100% บน Vercel
-      window.location.href = "/dashboard";
+      // วิธีนี้ใช้ได้ 100% — รอ 500ms ให้ cookie เซฟเสร็จก่อน
+      setTimeout(() => {
+        window.location.href = "/dashboard";
+      }, 500);
     }
   };
 
