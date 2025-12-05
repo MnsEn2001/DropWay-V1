@@ -1,15 +1,13 @@
 // src/app/(auth)/login/page.tsx
 "use client";
 import { useState } from "react";
-import { supabase } from "@/lib/supabase/client"; // แก้ตรงนี้แค่บรรทัดเดียว!
-import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase/client";
 import Link from "next/link";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,7 +22,8 @@ export default function LoginPage() {
       alert(error.message);
       setLoading(false);
     } else {
-      router.push("/dashboard");
+      // สำคัญมาก! ใช้ window.location แทน router.push → ใช้ได้ 100% บน Vercel
+      window.location.href = "/dashboard";
     }
   };
 
@@ -39,13 +38,14 @@ export default function LoginPage() {
             เข้าสู่ระบบเพื่อเริ่มส่งของ
           </p>
         </div>
+
         <form onSubmit={handleLogin} className="space-y-4 sm:space-y-6">
           <input
             type="email"
             placeholder="อีเมล"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-3 sm:px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
             required
           />
           <input
@@ -53,18 +53,20 @@ export default function LoginPage() {
             placeholder="รหัสผ่าน"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-3 sm:px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
             required
           />
+
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 text-white py-3 sm:py-4 rounded-lg font-bold text-base sm:text-lg hover:bg-blue-700 transition disabled:opacity-50"
+            className="w-full bg-blue-600 text-white py-4 rounded-lg font-bold text-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"}
           </button>
         </form>
-        <p className="text-center mt-6 text-gray-600 text-sm sm:text-base">
+
+        <p className="text-center mt-6 text-gray-600">
           ยังไม่มีบัญชี?{" "}
           <Link
             href="/signup"

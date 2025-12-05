@@ -11,7 +11,6 @@ export const middleware = async (req: NextRequest) => {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        // ใช้ getAll + setAll แทน get/set/remove → ไม่มี warning แล้ว!
         getAll() {
           return req.cookies
             .getAll()
@@ -32,12 +31,10 @@ export const middleware = async (req: NextRequest) => {
 
   const { pathname } = req.nextUrl;
 
-  // ป้องกันเข้าหน้า dashboard โดยไม่ล็อกอิน
   if (pathname.startsWith("/dashboard") && !session) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
-  // ถ้าล็อกอินแล้วไปหน้า login/signup → เด้งไป dashboard
   if ((pathname === "/login" || pathname === "/signup") && session) {
     return NextResponse.redirect(new URL("/dashboard", req.url));
   }
