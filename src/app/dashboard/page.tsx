@@ -73,7 +73,7 @@ export default function DashboardPage() {
         safeTotal > 0 ? Math.round((safeWithCoords / safeTotal) * 100) : 0,
       );
 
-      const { data: activities } = await supabase
+      const { data: activities } = await (supabase as any)
         .from("audits")
         .select("action, created_at")
         .limit(5)

@@ -288,7 +288,7 @@ export default function NavigatePage() {
       await supabase.rpc("save_start_position", {
         p_lat: detectedStartLat,
         p_lng: detectedStartLng,
-        p_name: startNameInput || null,
+        p_name: startNameInput || undefined, // เปลี่ยนจาก null เป็น undefined
       });
     } catch (e: any) {
       addToast(`บันทึกไม่สำเร็จ: ${e.message}`, "error");
