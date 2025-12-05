@@ -13,23 +13,23 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // src/app/(auth)/login/page.tsx
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
 
-    const { error: loginError } = await supabase.auth.signInWithPassword({
+    const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
-    if (loginError) {
-      setError(loginError.message);
+    if (error) {
+      setError(error.message);
       setLoading(false);
     } else {
-      // วิธีที่ดีที่สุดในปี 2025 สำหรับ Vercel + Next.js 16
-      router.replace("/dashboard"); // เปลี่ยนหน้าแบบไม่เพิ่ม history
-      router.refresh(); // บังคับให้ Server Components (layout, Navbar) โหลด session ใหม่ทันที
+      // วิธีเดียวที่เวิร์ก 100% บน Vercel ทุกตัวตอนนี้ (ธ.ค. 2025)
+      window.location.href = "/dashboard?t=" + Date.now();
     }
   };
 
