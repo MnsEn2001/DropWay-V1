@@ -1,17 +1,15 @@
+// src/app/(auth)/login/page.tsx
 "use client";
 
 import { useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
-  const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,10 +24,10 @@ export default function LoginPage() {
     if (error) {
       setError(error.message);
       setLoading(false);
-      return;
+    } else {
+      // วิธีเดียวที่เนียน 100%, ไม่กระพริบ, ไม่โหลดซ้ำ, ไม่มี 304 spam
+      window.location.href = "/dashboard";
     }
-
-    window.location.href = "/dashboard";
   };
 
   return (
