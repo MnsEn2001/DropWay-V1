@@ -1,9 +1,8 @@
-// middleware.ts
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-export const middleware = async (req: NextRequest) => {
+export async function middleware(req: NextRequest) {
   const res = NextResponse.next();
 
   const supabase = createServerClient(
@@ -12,13 +11,19 @@ export const middleware = async (req: NextRequest) => {
     {
       cookies: {
         getAll() {
-          return req.cookies
-            .getAll()
-            .map(({ name, value }) => ({ name, value }));
+          return req.cookies.getAll().map((c) => ({
+            name: c.name,
+            value: c.value,
+          }));
         },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            res.cookies.set(name, value, options);
+        setAll(cookies) {
+          cookies.forEach(({ name, value, options }) => {
+            res.cookies.set(name, value, {
+              ...options,
+              domain: "drop-way.vercel.app", // สำคัญมาก
+              sameSite: "lax",
+              secure: true,
+            });
           });
         },
       },
@@ -31,26 +36,17 @@ export const middleware = async (req: NextRequest) => {
 
   const { pathname } = req.nextUrl;
 
-  // protect dashboard
   if (pathname.startsWith("/dashboard") && !session) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
-  // if logged in, don't allow login/signup
   if (session && (pathname === "/login" || pathname === "/signup")) {
     return NextResponse.redirect(new URL("/dashboard", req.url));
   }
 
   return res;
-};
+}
 
-/**
- * FIX redirect loop by preventing middleware from running on static files:
- * - No _next files
- * - No static assets (.js, .css, .png, etc)
- */
 export const config = {
-  matcher: [
-    "/((?!_next|.*\\..*).*)", // ทำให้ middleware ทำงานเฉพาะหน้าเพจจริง
-  ],
+  matcher: ["/((?!_next|.*\\..*).*)"],
 };
