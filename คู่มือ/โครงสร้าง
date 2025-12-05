@@ -1,0 +1,55 @@
+src/
+├─ app/
+│  ├─ (auth)/
+│  │   ├─ login/page.tsx
+│  │   └─ signup/page.tsx
+│  ├─ dashboard/
+│  │   ├─ page.tsx
+│  │   ├─ houses/
+│  │   │   ├─ page.tsx
+│  │   │   ├─ add/page.tsx
+│  │   │   └─ [id]/page.tsx
+│  │   └─ routes/
+│  │       ├─ upload/page.tsx
+│  │       ├─ optimize/page.tsx
+│  │       └─ navigate/page.tsx
+│  ├─ api/
+│  │   ├─ auth/
+│  │   │   ├─ login/route.ts
+│  │   │   └─ signup/route.ts
+│  │   ├─ houses/
+│  │   │   ├─ add/route.ts
+│  │   │   ├─ search/route.ts
+│  │   │   └─ update/route.ts
+│  │   ├─ routes/
+│  │   │   ├─ generate/route.ts
+│  │   │   ├─ today/route.ts
+│  │   │   └─ complete/route.ts
+│  │   └─ start-point/route.ts
+│  ├─ layout.tsx
+│  ├─ globals.css
+│  └─ favicon.ico
+├─ components/
+│  ├─ layout/
+│  │   ├─ Navbar.tsx
+│  │   └─ Sidebar.tsx
+│  ├─ ui/
+│  │   ├─ Button.tsx
+│  │   ├─ Card.tsx
+│  │   ├─ Input.tsx
+│  │   ├─ Table.tsx
+│  │   └─ Modal.tsx
+│  ├─ houses/
+│  │   ├─ HouseCard.tsx
+│  │   └─ HouseForm.tsx
+│  └─ routes/
+│      ├─ RouteList.tsx
+│      └─ NavigationButton.tsx
+├─ lib/
+│  ├─ supabase.ts
+│  ├─ distance.ts
+│  ├─ csv.ts
+│  └─ format.ts
+├─ middleware.ts
+└─ styles/
+   └─ theme.ts
