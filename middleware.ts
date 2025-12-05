@@ -1,10 +1,11 @@
-// middleware.ts   (สมบูรณ์แบบแล้ว)
+// middleware.ts
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 export const middleware = async (req: NextRequest) => {
   const res = NextResponse.next();
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -30,16 +31,26 @@ export const middleware = async (req: NextRequest) => {
 
   const { pathname } = req.nextUrl;
 
+  // protect dashboard
   if (pathname.startsWith("/dashboard") && !session) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
-  if ((pathname === "/login" || pathname === "/signup") && session) {
+
+  // if logged in, don't allow login/signup
+  if (session && (pathname === "/login" || pathname === "/signup")) {
     return NextResponse.redirect(new URL("/dashboard", req.url));
   }
 
   return res;
 };
 
+/**
+ * FIX redirect loop by preventing middleware from running on static files:
+ * - No _next files
+ * - No static assets (.js, .css, .png, etc)
+ */
 export const config = {
-  matcher: ["/dashboard/:path*", "/login", "/signup"],
+  matcher: [
+    "/((?!_next|.*\\..*).*)", // ทำให้ middleware ทำงานเฉพาะหน้าเพจจริง
+  ],
 };
