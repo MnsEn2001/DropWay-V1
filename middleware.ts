@@ -1,38 +1,50 @@
 // src/middleware.ts
-import { createMiddlewareClient } from "@supabase/auth-helpers-nextjs";
-import { NextResponse, type NextRequest } from "next/server"; // เพิ่ม type NextRequest ตรงนี้!
+import { createServerClient } from "@supabase/ssr";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
-export async function middleware(req: NextRequest) {
+export const middleware = async (req: NextRequest) => {
   const res = NextResponse.next();
 
-  // สร้าง client ด้วยฟังก์ชันใหม่ (เวอร์ชัน 2025)
-  const supabase = createMiddlewareClient({ req, res });
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        // ใช้ getAll + setAll แทน get/set/remove → ไม่มี warning แล้ว!
+        getAll() {
+          return req.cookies
+            .getAll()
+            .map(({ name, value }) => ({ name, value }));
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            res.cookies.set(name, value, options);
+          });
+        },
+      },
+    },
+  );
 
-  // ดึง session
   const {
     data: { session },
   } = await supabase.auth.getSession();
 
   const { pathname } = req.nextUrl;
 
-  // ถ้ายังไม่ล็อกอิน แต่พยายามเข้า dashboard → เด้งไป login
+  // ป้องกันเข้าหน้า dashboard โดยไม่ล็อกอิน
   if (pathname.startsWith("/dashboard") && !session) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
-  // ถ้าล็อกอินแล้ว แต่ไปหน้า login หรือ signup → เด้งไป dashboard
+  // ถ้าล็อกอินแล้วไปหน้า login/signup → เด้งไป dashboard
   if ((pathname === "/login" || pathname === "/signup") && session) {
     return NextResponse.redirect(new URL("/dashboard", req.url));
   }
 
   return res;
-}
+};
 
-// ระบุ path ที่ middleware ทำงาน
 export const config = {
-  matcher: [
-    "/dashboard/:path*", // ทุกหน้าใน dashboard
-    "/login",
-    "/signup",
-  ],
+  matcher: ["/dashboard/:path*", "/login", "/signup"],
 };
