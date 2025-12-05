@@ -29,9 +29,7 @@ export default function LoginPage() {
       return;
     }
 
-    // 2 บรรทัดนี้คือสิ่งที่แก้ปัญหาทั้งหมด
-    router.replace("/dashboard");
-    router.refresh(); // สำคัญมาก! บังคับ middleware รันใหม่ทันที
+    window.location.href = "/dashboard";
   };
 
   return (
