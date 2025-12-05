@@ -1,5 +1,6 @@
 // src/components/layout/Navbar.tsx
 "use client";
+
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -15,37 +16,20 @@ import { supabase } from "@/lib/supabase/client";
 import { User } from "@supabase/supabase-js";
 import { useState, useEffect } from "react";
 
-export function Navbar() {
+export function Navbar({ initialUser }: { initialUser: User | null }) {
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true); // เพิ่ม loading state
+  const [user, setUser] = useState<User | null>(initialUser);
 
-  // ดึงสถานะล็อกอิน + ติดตามการเปลี่ยนแปลง
+  // ฟังการเปลี่ยนแปลงแบบ real-time (เช่น logout จากที่อื่น)
   useEffect(() => {
-    let mounted = true;
-    const initAuth = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (mounted) {
-        setUser(user);
-        setLoading(false);
-      }
-    };
-    initAuth();
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (mounted) {
-        setUser(session?.user ?? null);
-        setLoading(false);
-      }
+      setUser(session?.user ?? null);
     });
-    return () => {
-      mounted = false;
-      subscription.unsubscribe();
-    };
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const handleLogout = async () => {
@@ -53,7 +37,6 @@ export function Navbar() {
     window.location.href = "/login";
   };
 
-  // เมนูตามสถานะล็อกอิน
   const menuItems = user
     ? [
         { href: "/dashboard", label: "แดชบอร์ด", icon: Home },
@@ -70,7 +53,6 @@ export function Navbar() {
         { href: "/signup", label: "สมัครสมาชิก", icon: UserIcon },
       ];
 
-  // คำนวณ active item โดยใช้ longest matching prefix เพื่อให้ไฮไลต์เฉพาะเมนูที่เฉพาะเจาะจงที่สุด
   const activeHref = menuItems.reduce((prev, curr) => {
     if (
       pathname.startsWith(curr.href) &&
@@ -81,14 +63,12 @@ export function Navbar() {
     return prev;
   }, "");
 
-  // ซ่อน Navbar ถ้าเป็นหน้า login/signup
   const isAuthPage =
     pathname === "/login" ||
     pathname === "/signup" ||
     pathname === "/forgot-password";
-  if (isAuthPage || loading) {
-    return null; // ไม่แสดงอะไรตอนโหลด หรือตอนอยู่หน้า auth
-  }
+
+  if (isAuthPage) return null;
 
   return (
     <>
@@ -192,7 +172,6 @@ export function Navbar() {
                   );
                 })}
               </nav>
-              {/* Logout button in mobile */}
               {user && (
                 <div className="p-4 border-t border-gray-800">
                   <button
@@ -200,7 +179,7 @@ export function Navbar() {
                       setSidebarOpen(false);
                       handleLogout();
                     }}
-                    className="w-full flex items-center gap-4 px-5 py-3.5 rounded-xl transition"
+                    className="w-full flex items-center gap-4 px-5 py-3.5 rounded-xl text-red-400 hover:bg-gray-800 transition"
                   >
                     <LogOut className="w-5 h-5" />
                     <span>ออกจากระบบ</span>

@@ -1,11 +1,11 @@
-// src/lib/supabase/server.ts   (ดีมากแล้ว)
+// src/lib/supabase/server.ts
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
-import type { Database } from "@/types/supabase";
 
-export async function createServerSupabase() {
+export async function getCurrentUser() {
   const cookieStore = await cookies();
-  return createServerClient<Database>(
+
+  const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -13,16 +13,17 @@ export async function createServerSupabase() {
         getAll() {
           return cookieStore.getAll();
         },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options),
-            );
-          } catch {
-            // ignore
-          }
+        // ต้องเว้น setAll ว่างไว้แบบนี้เท่านั้น ถึงจะไม่ error ใน Next.js 16
+        setAll() {
+          // do nothing – เราอ่านอย่างเดียว ไม่ต้องเขียน cookie ใน layout
         },
       },
     },
   );
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  return session?.user ?? null;
 }

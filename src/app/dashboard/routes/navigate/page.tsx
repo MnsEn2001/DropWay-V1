@@ -948,13 +948,13 @@ export default function NavigatePage() {
               onClick={() => setActiveTab("today")}
               className={`flex-1 py-2 rounded-md font-medium text-sm transition ${activeTab === "today" ? "bg-white shadow text-indigo-600" : "text-gray-600"}`}
             >
-              วันนี้ ({displayedHouses.length})
+              วันนี้ ( {displayedHouses.length} )
             </button>
             <button
               onClick={() => setActiveTab("reported")}
               className={`flex-1 py-2 rounded-md font-medium text-sm transition ${activeTab === "reported" ? "bg-white shadow text-red-600" : "text-gray-600"}`}
             >
-              รายงานแล้ว ({filteredReportedHouses.length})
+              รายงานแล้ว ( {filteredReportedHouses.length} )
             </button>
           </div>
         </div>
