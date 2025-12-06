@@ -14,18 +14,11 @@ export const createSupabaseServerClient = async () => {
           return cookieStore.getAll();
         },
         setAll(cookiesToSet) {
-          // สำคัญมาก: ต้อง set cookie ด้วยวิธีนี้ถึงจะผ่าน Vercel
           cookiesToSet.forEach(({ name, value, options }) => {
-            cookieStore.set(name, value, { ...options, path: "/" });
+            cookieStore.set(name, value, options);
           });
         },
       },
     },
   );
 };
-
-export async function getCurrentUser() {
-  const supabase = await createSupabaseServerClient();
-  const { data } = await supabase.auth.getSession();
-  return data.session?.user ?? null;
-}
