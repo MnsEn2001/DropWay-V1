@@ -851,7 +851,7 @@ export default function NavigatePage() {
       <div className="min-h-screen bg-gray-50 pb-24 py-0 lg:pb-8 text-gray-800">
         {/* Header */}
         <div className="sticky top-0 bg-white border-b border-gray-200 z-40 shadow">
-          <div className="max-w-7xl mx-auto px-4 pt-19 pb-4">
+          <div className="max-w-7xl mx-auto px-4 pt-3 pb-4">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-3">
                 <h1 className="text-2xl font-bold">นำทางวันนี้</h1>

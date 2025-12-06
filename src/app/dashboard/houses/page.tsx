@@ -672,8 +672,8 @@ export default function HousesPage() {
   return (
     <>
       <div className="max-w-7xl mx-auto px-4 py-6 pb-24 lg:pb-8">
-        <div className="mb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-15 pb-2">
-          <div>
+        <div className="mb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2">
+          <div className="flex items-center gap-3">
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
               คลังบ้าน
             </h1>

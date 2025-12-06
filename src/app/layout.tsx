@@ -1,10 +1,8 @@
-// src/app/layout.tsx
 import "./globals.css";
 import { Navbar } from "@/components/layout/Navbar";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { User } from "@supabase/supabase-js";
 
-// บังคับโหลดใหม่ทุก request + ไม่ cache
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
@@ -14,27 +12,9 @@ export default async function RootLayout({
   children: React.ReactNode;
 }) {
   const supabase = await createSupabaseServerClient();
-
-  // ดึง session ครั้งแรก
-  let {
+  const {
     data: { session },
   } = await supabase.auth.getSession();
-
-  // ถ้ามี session และใกล้หมดอายุ → refresh แล้วดึงใหม่
-  if (session) {
-    const expiresAt = session.expires_at ?? 0;
-    const now = Math.floor(Date.now() / 1000);
-
-    if (expiresAt - now < 600) {
-      // น้อยกว่า 10 นาที
-      const { error: refreshError } = await supabase.auth.refreshSession();
-      if (!refreshError) {
-        const { data } = await supabase.auth.getSession(); // ดึงใหม่ทั้งหมด
-        session = data.session; // อัปเดต session ตัวใหม่
-      }
-    }
-  }
-
   const user: User | null = session?.user ?? null;
 
   return (
