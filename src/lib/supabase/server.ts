@@ -13,9 +13,8 @@ export const createSupabaseServerClient = async () => {
         getAll() {
           return cookieStore.getAll();
         },
-        // สำคัญมาก! อย่า set cookie ใน layout → ใส่ฟังก์ชันว่างไว้
         setAll() {
-          // do nothing – เราแค่ "อ่าน" session ไม่ได้เขียน
+          // ว่างไว้! ไม่ต้อง set cookie ใน layout
         },
       },
     },

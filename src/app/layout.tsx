@@ -1,7 +1,7 @@
+// src/app/layout.tsx
 import "./globals.css";
 import { Navbar } from "@/components/layout/Navbar";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { User } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -12,10 +12,11 @@ export default async function RootLayout({
   children: React.ReactNode;
 }) {
   const supabase = await createSupabaseServerClient();
+
+  // สำคัญที่สุด! ใช้ getUser() แทน getSession()
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  const user: User | null = session?.user ?? null;
+    data: { user },
+  } = await supabase.auth.getUser();
 
   return (
     <html lang="th">
