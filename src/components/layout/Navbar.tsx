@@ -21,12 +21,26 @@ export function Navbar({ initialUser }: { initialUser: User | null }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [user, setUser] = useState<User | null>(initialUser);
 
-  // ฟังการเปลี่ยนแปลงแบบ real-time (เช่น logout จากที่อื่น)
   useEffect(() => {
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (
+        event === "SIGNED_OUT" ||
+        event === "TOKEN_REFRESHED" ||
+        event === "SIGNED_IN"
+      ) {
+        setUser(session?.user ?? null);
+      }
+
+      // Auto-refresh ถ้า token ใกล้หมด
+      if (session) {
+        const expiresAt = session.expires_at ?? 0;
+        const now = Math.floor(Date.now() / 1000);
+        if (expiresAt - now < 600) {
+          await supabase.auth.refreshSession();
+        }
+      }
     });
 
     return () => subscription.unsubscribe();
