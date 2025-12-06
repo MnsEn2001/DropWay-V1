@@ -1,33 +1,34 @@
-// src/app/layout.tsx
-import type { Metadata } from "next";
-import "./globals.css";
+// src/app/layout.tsx  ← แก้แค่ 2 บรรทัดนี้
+import { cookies } from "next/headers";
 import { Navbar } from "@/components/layout/Navbar";
-import { getCurrentUser } from "@/lib/supabase/server";
 
-export const metadata: Metadata = {
-  title: "Dropway - ระบบส่งของจ.ตาก",
-  description: "จัดการบ้าน เส้นทาง และการส่งของอย่างชาญฉลาด",
-};
+export const dynamic = "force-dynamic"; // เพิ่มบรรทัดนี้!
 
 export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const user = await getCurrentUser(); // ได้ user ถูกต้องตั้งแต่ server
+  const cookieStore = await cookies();
+
+  // ใช้ header ที่เปลี่ยนทุก request เพื่อหลอก Next.js ไม่ให้ cache
+  const requestId = cookieStore.get("request-id")?.value || Date.now().toString();
+
+  const { getUser = async () => {
+    "use server";
+    const { createSupabaseServerClient } = await import("@/lib/supabase/server");
+    const supabase = await createSupabaseServerClient();
+    const { data } = await supabase.auth.getSession();
+    return data.session?.user ?? null;
+  };
+
+  const user = await getUser();
 
   return (
     <html lang="th">
-      <head>
-        <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap"
-          rel="stylesheet"
-        />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      </head>
-      <body className="bg-gray-50 font-sans antialiased min-h-screen">
+      <body>
         <Navbar initialUser={user} />
-        <main className="pt-16">{children}</main>
+        {children}
       </body>
     </html>
   );

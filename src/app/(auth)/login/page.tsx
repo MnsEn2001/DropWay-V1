@@ -28,8 +28,7 @@ export default function LoginPage() {
       setError(error.message);
       setLoading(false);
     } else {
-      // วิธีเดียวที่เวิร์ก 100% บน Vercel ทุกตัวตอนนี้ (ธ.ค. 2025)
-      window.location.href = "/dashboard?t=" + Date.now();
+      window.location.href = "/dashboard";
     }
   };
 
