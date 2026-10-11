@@ -69,7 +69,7 @@ Snapshot ตรวจสอบเมื่อ: **2026-10-11** — ทุกค�
 
 ## In-progress
 
-- ไม่มีงานค้าง — งาน hardening commit + push แล้ว (เอกสาร sync ชุดนี้ตามด้วย commit ถัดไป)
+- ไม่มีงานค้าง — งาน hardening commit + push แล้ว (commit sync ตามมาแล้ว — ดู `git log`)
 
 ## Known issues (มีหลักฐานประกอบ)
 
@@ -107,8 +107,7 @@ Snapshot ตรวจสอบเมื่อ: **2026-10-11** — ทุกค�
 
 ## Next Recommended Tasks (ยังไม่เริ่ม — รอคำสั่งผู้ใช้)
 
-1. ผู้ใช้ commit เอกสาร hardening ชุดนี้ (Changes panel)
-2. Regenerate Supabase types + เติม `reported_houses`/`audits`
-3. ทบทวน RLS บน Supabase project จริง
-4. ใส่ Supabase env keys แล้ว re-verify runtime (`freebuff-preview restart`)
-5. ล้าง dead code (distance.ts, NavigationButton.tsx, tesseract.js) เมื่อได้รับอนุญาต
+1. Regenerate Supabase types + เติม `reported_houses`/`audits`
+2. ทบทวน RLS บน Supabase project จริง
+3. ใส่ Supabase env keys แล้ว re-verify runtime (`freebuff-preview restart`)
+4. ล้าง dead code (distance.ts, NavigationButton.tsx, tesseract.js) เมื่อได้รับอนุญาต

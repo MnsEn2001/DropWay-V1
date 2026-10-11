@@ -48,7 +48,7 @@
   - กฎ GitHub Source of Truth + Quick Start ที่ตรวจ divergence ก่อนทำงาน — commit `b8186f8702c0eb35fff457770196cfb3a8bae047`
 - Known Issues: ดูรายการเต็มใน `.ai/CURRENT_STATE.md` (สรุป: `reported_houses`/`audits` ไม่อยู่ใน generated types, RLS ยังไม่ยืนยันบน Supabase จริง, มี dead code ที่ยังไม่ลบ)
 - Blocked: runtime/preview ต้องใช้ `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` ที่ยังไม่มีใน workspace นี้ (ห้ามอ่าน/พิมพ์ค่า secret — ผู้ใช้จัดการผ่าน Settings → Environment)
-- Next Recommended Task: ผู้ใช้ commit เอกสารชุดนี้ก่อน แล้วรอคำสั่งงานถัดไป (ห้ามเริ่ม Phase 2 เอง) — รายการงานที่ข้อมูลรองรับอยู่ใน `.ai/CURRENT_STATE.md`
+- Next Recommended Task: รอผู้ใช้สั่งงานถัดไป (Phase 2 หรือไม่ก็ได้ — ห้ามเริ่มเอง) — รายการงานที่มีข้อมูลรองรับอยู่ใน `.ai/CURRENT_STATE.md`
 
 ## Important Files
 
