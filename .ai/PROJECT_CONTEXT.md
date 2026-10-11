@@ -79,14 +79,17 @@ middleware.ts            # auth guard
 ## Development commands
 
 ```bash
-bun install      # ติดตั้ง dependencies (มี bun.lock)
+bun install      # ติดตั้ง dependencies
 bun run dev      # next dev
 bun run lint     # eslint (flat config)
 bun run build    # next build (รวม typecheck)
 bun run start    # next start (production server)
 ```
 
-Package manager ที่ใช้จริง: **bun** (มี `bun.lock`)
+Package manager ที่ใช้ในงานนี้: **bun** — repository **ไม่ track lockfile** ใด ๆ
+(`bun.lock` เป็น local artifact จากเครื่องที่ติดตั้ง — untracked; ห้ามอ้างว่ามี lockfile อยู่ในเรโป)
+ตัวสคริปต์ทั้งหมดตรงกับ `scripts` ใน `package.json` (dev/build/start/lint)
+
 ห้ามคาดเดา `.env` — ผู้ใช้จัดการ secrets เอง
 
 ## Production commands

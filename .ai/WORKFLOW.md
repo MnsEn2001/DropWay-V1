@@ -11,6 +11,7 @@ AI ต้องไม่ข้าม **Inspect** และไม่ข้าม 
 
 ## PHASE 2 — Inspect
 
+- ตรวจ GitHub latest SHA จริง (`git fetch origin` + `git ls-remote origin refs/heads/main`) เทียบ local HEAD/branch/working tree และ divergence — ดู "GitHub Source of Truth" ใน `.ai/AI_RULES.md` (ห้ามเชื่อ SHA จากเอกสารโดยไม่ตรวจ)
 - `git status`, branch, latest commit SHA, working tree
 - อ่าน `.ai/AI_HANDOFF.md`, `.ai/CURRENT_STATE.md`, `.ai/PROJECT_CONTEXT.md`
 - ค้นหาโค้ดเดิมที่เกี่ยวข้องก่อน (อย่าสร้างซ้ำ — ดู `.ai/ARCHITECTURE.md`)
@@ -51,7 +52,7 @@ bun run build
 
 ## PHASE 7 — Update Handoff
 
-- อัปเดต `.ai/CURRENT_STATE.md` ให้ตรงสถานะจริง
+- อัปเดต `.ai/CURRENT_STATE.md` ให้ตรงสถานะจริง (แยก GitHub SHA / local HEAD SHA / task commit SHA — full SHA + วันที่ตรวจเสมอ)
 - อัปเดต `.ai/AI_HANDOFF.md` (งานล่าสุด, known issues, next task)
 - เพิ่ม entry ใน `.ai/CHANGELOG.md` เมื่อ change สำคัญต่อ project state
 - ถ้ามี decision สำคัญ → เพิ่ม ADR ใน `.ai/decisions/`
@@ -70,4 +71,5 @@ bun run build
 
 - task เสร็จแล้ว → ย้าย/สรุปจาก `tasks/active/` ไป `tasks/archive/` ได้ตามความเหมาะสม
 - อย่าสร้าง task/report/ADR เปล่า ๆ ที่ไม่มีงานจริง
-- เอกสารทั้งหมดต้องอิงสถานะจริง — source code ชนะเอกสารเสมอ
+- เอกสารทั้งหมดต้องอิงสถานะจริง — source code / configuration / สถานะ Git ชนะเอกสารเสมอ
+- หลัง task สำคัญเสร็จ อัปเดตเฉพาะเอกสารที่ได้รับผลกระทบ (ดูตารางหน้าที่เอกสารใน `.ai/AI_RULES.md` ข้อ 10) — ห้ามแก้ทุกไฟล์โดยไม่มีเหตุผล

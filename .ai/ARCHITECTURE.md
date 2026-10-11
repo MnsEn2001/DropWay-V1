@@ -54,7 +54,7 @@ Supabase (Auth + Postgres + RPC)
   Badge, StatusBadge/StatusDot/StatusIcon (Delivery Status System),
   Alert, Modal, Drawer, Dropdown, Tooltip, Tabs, Table, Avatar,
   EmptyState, LoadingState, Skeleton, ErrorState, Toast (provider + useToast),
-  PageHeader, SectionHeader, StatCard — export ผ่าน `ui/index.ts`
+  PageHeader, SectionHeader, StatCard, QuickAction — export ผ่าน `ui/index.ts`
 - `layout/AppShell.tsx` — navigation shell ทั้งหมด:
   - Desktop: fixed sidebar (ซ้าย) + topbar + account dropdown
   - Mobile: topbar + bottom navigation (3 แท็บจริง) + account drawer
@@ -110,4 +110,4 @@ Supabase (Auth + Postgres + RPC)
 - `next.config.ts` — `reactStrictMode: true`, `serverExternalPackages: ["@supabase/ssr"]`
 - `tsconfig.json` — strict, path alias `@/*` → `./src/*`
 - `eslint.config.mjs` — flat config (ซ่อมใน Phase 1: `defineConfig([...nextVitals, ...nextTs, globalIgnores([...])])` + `@typescript-eslint/no-explicit-any: error`)
-- ไม่มี `.gitignore` ในรีโปเดิม — ถูกเพิ่มในงาน `.ai/` (ยัง ignore `.ai/` ไม่ได้)
+- `.gitignore` ถูกเพิ่มในงาน `.ai/` — ignore `node_modules`, `.next/` และ env files แต่ **ไม่ ignore `.ai/`** (เจตนา: เอกสาร AI ต้องถูก track ใน repo)

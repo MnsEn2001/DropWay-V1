@@ -5,7 +5,7 @@
 
 ## Read First
 
-1. `.ai/AI_RULES.md` — กฎที่ห้ามละเมิด
+1. `.ai/AI_RULES.md` — กฎที่ห้ามละเมิด (โดยเฉพาะ "GitHub Source of Truth")
 2. `.ai/CURRENT_STATE.md` — สถานะปัจจุบันของโปรเจกต์
 3. `.ai/PROJECT_CONTEXT.md` — ภาพรวมโปรเจกต์
 4. Task ที่กำลังทำ (`.ai/tasks/active/` ถ้ามี)
@@ -13,42 +13,42 @@
 
 ## Quick Start (สำหรับ AI Agent ใหม่)
 
-1. ตรวจ `git status`
-2. ตรวจ branch ปัจจุบัน
-3. ตรวจ latest commit SHA
+1. ตรวจ GitHub latest SHA: `git fetch origin` + `git ls-remote origin refs/heads/main` (อย่าเชื่อ SHA ที่อยู่ในเอกสาร)
+2. ตรวจ local HEAD, branch และ working tree: `git rev-parse HEAD`, `git branch --show-current`, `git status`
+3. ประเมิน divergence: `git rev-list --left-right --count HEAD...origin/main` — ถ้าไม่ตรงกันหรือมีงานค้าง ให้ประเมินความปลอดภัยของ workspace ก่อนทำต่อ (ห้าม reset/force push/discard งานผู้ใช้)
 4. อ่าน `.ai/AI_RULES.md`
 5. อ่าน `.ai/CURRENT_STATE.md`
 6. อ่าน `.ai/PROJECT_CONTEXT.md`
-7. อ่าน task ที่เกี่ยวข้อง
-8. inspect source files ที่ task ต้องใช้จริง
-9. วางแผน (เขียน task brief ใน `.ai/tasks/` ถ้าเป็นงานใหญ่)
-10. implement แบบ minimal changes
-11. รัน `bun run lint`
-12. รัน `bun run build`
-13. review `git diff`
-14. อัปเดต `.ai/CURRENT_STATE.md`
-15. อัปเดต `.ai/AI_HANDOFF.md`
-16. สรุปเป็น final report
+7. อ่าน task ที่เกี่ยวข้อง (`.ai/tasks/active/`)
+8. อ่าน `.ai/ARCHITECTURE.md` / `.ai/WORKFLOW.md` เมื่อ task ต้องใช้
+9. inspect source files ที่ task ต้องใช้จริง
+10. วางแผน + implement แบบ minimal changes
+11. รัน verification (`bun run lint`, `bun run build` — ขั้นตอนเต็มใน `.ai/WORKFLOW.md` PHASE 5)
+12. review `git diff` — ห้ามมีไฟล์แปลกปลอม/secrets
+13. อัปเดตเอกสารที่ได้รับผลกระทบ (CURRENT_STATE / HANDOFF / CHANGELOG / reports)
+14. สรุป final report ตามหลักฐานจริง
 
 เป้าหมาย: AI ไม่ต้องอ่านทั้ง repository ตั้งแต่ต้นทุกครั้ง
 
-## Current Project Status
+## Current Project Status (snapshot — ต้องตรวจซ้ำเสมอ)
 
-- Current Branch: `main`
-- Current Commit: `ede06af` ขึ้นไป — งาน Phase 1 (`ab627da`) + เอกสาร `.ai/` (`ede06af`) commit และ push แล้ว
-- Current Phase: **Phase 1 — UI/UX Design System & Visual Foundation (เสร็จ, verify แล้ว, push แล้ว)**
-- Current Work: ไม่มีงานค้างในโค้ด — รอคำสั่งงานถัดไป (ห้ามเริ่ม Phase 2 เอง)
-- Completed:
-  - Design system (tokens, typography, spacing, radius, shadows) ใน `src/app/globals.css`
-  - Shared UI components ครบชุดใน `src/components/ui/` (26 components + barrel)
-  - Delivery Status System (10 สถานะ) แบบ UI-only
-  - App Shell ใหม่: Desktop sidebar + topbar + mobile bottom navigation (`src/components/layout/AppShell.tsx`)
-  - ปรับทุกหน้าให้ใช้ design system: `/`, `/login`, `/signup`, `/dashboard`, `/dashboard/houses`, `/dashboard/routes/navigate`
-  - แก้ `eslint.config.mjs` ที่พัง (flat config) → lint รันได้แล้ว
-  - แก้ `src/types/supabase.ts` จาก UTF-16 เป็น UTF-8 (เดิม ESLint อ่านไม่ได้)
-- Known Issues: ดูรายการเต็มใน `.ai/CURRENT_STATE.md` (สรุป: `reported_houses`/`audits` ไม่อยู่ใน generated types, RLS ของตารางหลักยังต้องตรวจบน Supabase จริง, มี dead code ที่ยังไม่ลบ)
-- Blocked: ไม่มี blocker ในระดับโค้ด — แต่ **runtime/preview ต้องใช้ `NEXT_PUBLIC_SUPABASE_URL` และ `NEXT_PUBLIC_SUPABASE_ANON_KEY`** ซึ่งยังไม่มีใน workspace นี้ (ห้ามอ่าน/พิมพ์ค่า secret)
-- Next Recommended Task: รอผู้ใช้สั่งงานถัดไป (Phase 2 หรือไม่ก็ได้ — ห้ามเริ่มเอง) — รายการงานที่มีข้อมูลรองรับอยู่ใน `.ai/CURRENT_STATE.md` หัวข้อ Next Recommended Tasks
+ตรวจเมื่อ **2026-10-11** (ทุกค่ามาจากคำสั่ง git จริง — ไม่ใช่การคาดเดา):
+
+- Branch: `main` — เป็น default branch ของ GitHub (`git ls-remote --symref origin HEAD`)
+- GitHub `origin/main` (full SHA): `6f36c1b1c72f8abf9e290ae1dabcce02122b1b97`
+  — `docs(ai): record the Phase 1 commit SHAs in current state and handoff` (2026-10-11 07:54:40 +0000)
+- Local HEAD (full SHA): `6f36c1b1c72f8abf9e290ae1dabcce02122b1b97` — ตรงกับ origin/main
+- Divergence: 0 ahead / 0 behind (`git rev-list --left-right --count HEAD...origin/main`)
+- Working tree: มีการแก้ `.ai/*.md` จากงาน "AI Integrity & GitHub Source-of-Truth Hardening" ที่ยังไม่ commit (คำสั่งงานห้าม commit — ผู้ใช้ commit ผ่าน Changes panel) + `bun.lock` (untracked — repo ไม่ track lockfile)
+- Current Phase: **Phase 1 — UI/UX Design System (เสร็จ, static checks ผ่าน, push แล้ว)**
+- Current Work: งาน `.ai/` integrity hardening แก้เอกสารเสร็จ — รอผู้ใช้ commit
+- Completed (สำคัญ):
+  - Phase 1 UI foundation ทั้งหมด — commit `ab627da5ba65d677fce71c221af06bd0e82027e7`
+  - ระบบเอกสาร `.ai/` + `.gitignore` + README — commits `ede06afc001165a131301df0bc6358bea829c522`, `6f36c1b1c72f8abf9e290ae1dabcce02122b1b97`
+  - กฎ GitHub Source of Truth + Quick Start ที่ตรวจ divergence ก่อนทำงาน (งาน hardening นี้)
+- Known Issues: ดูรายการเต็มใน `.ai/CURRENT_STATE.md` (สรุป: `reported_houses`/`audits` ไม่อยู่ใน generated types, RLS ยังไม่ยืนยันบน Supabase จริง, มี dead code ที่ยังไม่ลบ)
+- Blocked: runtime/preview ต้องใช้ `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` ที่ยังไม่มีใน workspace นี้ (ห้ามอ่าน/พิมพ์ค่า secret — ผู้ใช้จัดการผ่าน Settings → Environment)
+- Next Recommended Task: ผู้ใช้ commit เอกสารชุดนี้ก่อน แล้วรอคำสั่งงานถัดไป (ห้ามเริ่ม Phase 2 เอง) — รายการงานที่ข้อมูลรองรับอยู่ใน `.ai/CURRENT_STATE.md`
 
 ## Important Files
 
@@ -68,20 +68,19 @@
 
 ## Last Verification
 
-วันที่ 2026-10-11 (หลังงาน Phase 1):
-
-- `tsc --noEmit` → **PASS** (exit 0)
-- `eslint .` → **PASS** (exit 0, ไม่มี error/warning)
-- `next build` → **PASS** (exit 0, ทุก route เป็น dynamic `ƒ`)
-- Runtime/preview → **ยังไม่ได้ verify**: workspace ไม่มี Supabase env keys
-- รายละเอียดผลรัน+ข้อจำกัด: `.ai/reports/2026-10-11-phase-1-verification.md`
+- Static checks (รันจริง 2026-10-11): `bun run lint` + `bun run build` → **PASS**
+  หลักฐาน: `.ai/reports/2026-10-11-phase-1-verification.md`
+- งาน AI integrity hardening (เอกสารล้วน — 2026-10-11): รัน `bun run lint` + `bun run build` ซ้ำหลังแก้เอกสาร → **PASS** (exit 0 ทั้งคู่)
+  หลักฐาน: `.ai/reports/2026-10-11-ai-integrity-audit.md`
+- Runtime/preview: **NOT VERIFIED (BLOCKED)** — workspace ไม่มี Supabase env keys → ทุก route ตอบ 500 จาก `createSupabaseServerClient`
+- อย่าอ้างผลเก่าเสมือนเพิ่งรัน — ตรวจวันที่ในรายงาน และ rerun เมื่อโค้ดเปลี่ยน
 
 ## Rules
 
-AI ต้องไม่ถือว่าเอกสารนี้ถูกต้องกว่าซอร์สโค้ด
+AI ต้องไม่ถือว่าเอกสารนี้ถูกต้องกว่าซอร์สโค้ด / configuration / สถานะ Git จริง
 
-ถ้า source code / database / configuration กับเอกสารไม่ตรงกัน:
+ถ้า source code / database / configuration / GitHub กับเอกสารไม่ตรงกัน:
 
-**SOURCE CODE / DATABASE / CONFIGURATION เป็น source of truth**
+**SOURCE CODE / DATABASE / CONFIGURATION / GIT STATE เป็น source of truth**
 
 และต้องแก้ `CURRENT_STATE.md` / `AI_HANDOFF.md` ให้ตรงกับสถานะจริงหลังตรวจสอบ

@@ -3,6 +3,21 @@
 กฎกลางสำหรับ AI Agent ทุกตัวที่ทำงานกับโปรเจกต์ DropWay
 ถ้ากฎข้อใดขัดกับ task ให้รายงานความขัดแย้งก่อนลงมือ
 
+## GitHub Source of Truth (ทำก่อนทุกอย่าง)
+
+`origin/main` คือแหล่งอ้างอิงของสถานะโค้ดล่าสุดที่เผยแพร่บน GitHub
+
+1. ก่อนเริ่มทุก task ต้องตรวจ GitHub latest commit SHA จริง (`git fetch origin` แล้ว `git ls-remote origin refs/heads/main`)
+2. ตรวจ local HEAD, branch, working tree และความแตกต่างจาก GitHub (`git rev-parse HEAD`, `git status`, `git rev-list --left-right --count HEAD...origin/main`)
+3. ห้ามเชื่อ SHA ที่บันทึกใน `.ai/AI_HANDOFF.md` / `.ai/CURRENT_STATE.md` โดยไม่ตรวจสอบซ้ำ — เอกสารเป็นได้แค่ snapshot ของวันที่ที่ระบุไว้
+4. ถ้า local ล้าหลัง GitHub ต้องดู `git diff HEAD..origin/main` และประเมินก่อนทำงาน — ถ้ามีความเสี่ยงต่อข้อมูลหรือ work ของผู้ใช้ ให้หยุดและรายงานก่อน (ห้าม merge/rebase/reset โดยพลการ)
+5. ถ้า local มี commits ที่ GitHub ยังไม่มี — ห้าม push และห้ามทิ้ง commits เอง ให้รายงานให้ผู้ใช้ตัดสิน
+6. ถ้า GitHub เปลี่ยนระหว่างทำงาน ต้องประเมินผลกระทบก่อนดำเนินการต่อ
+7. หลังจบ task ต้องบันทึก SHA ที่ตรวจสอบได้ แยกให้ชัด 3 ค่า: GitHub latest SHA / local HEAD SHA / task commit SHA (ถ้ามี) พร้อมวันที่ตรวจสอบ — และใช้ full SHA เสมอ
+8. หากตรวจ GitHub ไม่ได้ (network/auth) ต้องระบุ `BLOCKED: GITHUB VERIFICATION UNAVAILABLE` และห้ามอ้างว่า local ตรงกับ GitHub
+9. การตรวจ SHA ไม่ได้แปลว่า local workspace ซิงก์กับ GitHub แล้ว — ต้องตรวจ `git status` และ divergence จริงด้วย
+10. ห้ามถือว่าเอกสาร AI มีความสำคัญเหนือ source code, configuration หรือสถานะจริงของ Git
+
 ## 1. Source of Truth
 
 ก่อนแก้ไข code ต้องตรวจสอบ source ของ repository จริงก่อน
@@ -85,6 +100,7 @@ bun run build  # next build (รวม typecheck)
 
 และถ้ามีการแก้ logic ให้ทดสอบพฤติกรรมจริงเท่าที่ทำได้
 ห้ามรายงานว่า PASS ถ้ายังไม่ได้รันจริง
+ผลรันที่บันทึกในเอกสารต้องระบุวันที่ + คำสั่งจริง — ห้ามนำผลเก่ามาแทนการรันใหม่เมื่อมีการแก้โค้ด
 
 ## 9. Git Safety
 
@@ -96,7 +112,23 @@ bun run build  # next build (รวม typecheck)
 - ห้าม force push
 - การ commit/push เป็นสิทธิ์ของผู้ใช้ (ผ่าน Changes panel)
 
-## 10. Stop Conditions
+## 10. เอกสาร AI — หน้าที่และความสด
+
+| ไฟล์/โฟลเดอร์ | หน้าที่ |
+|---|---|
+| `.ai/AI_RULES.md` | กฎการทำงาน (ไฟล์นี้) |
+| `.ai/AI_HANDOFF.md` | จุดเริ่มต้น + handoff (อ่านก่อนเสมอ) |
+| `.ai/CURRENT_STATE.md` | สถานะที่ตรวจสอบได้ล่าสุด |
+| `.ai/PROJECT_CONTEXT.md` | ภาพรวมโปรเจกต์ |
+| `.ai/ARCHITECTURE.md` | โครงสร้างระบบจริง |
+| `.ai/CHANGELOG.md` | ประวัติการเปลี่ยนแปลงสำคัญ |
+| `.ai/tasks/` | ขอบเขตและผลของงานแต่ละชิ้น |
+| `.ai/reports/` | หลักฐาน verification |
+
+- หลัง task สำคัญเสร็จ ต้องอัปเดตเอกสารที่ได้รับผลกระทบ — ห้ามแก้ทุกไฟล์โดยไม่มีเหตุผล
+- เอกสารที่อ้าง SHA ต้องใช้ full SHA + วันที่ตรวจสอบ (snapshot) เสมอ
+
+## 11. Stop Conditions
 
 AI ต้องหยุดและรายงานเมื่อ:
 
