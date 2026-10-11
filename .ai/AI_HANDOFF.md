@@ -35,17 +35,17 @@
 ตรวจเมื่อ **2026-10-11** (ทุกค่ามาจากคำสั่ง git จริง — ไม่ใช่การคาดเดา):
 
 - Branch: `main` — เป็น default branch ของ GitHub (`git ls-remote --symref origin HEAD`)
-- GitHub `origin/main` (full SHA): `6f36c1b1c72f8abf9e290ae1dabcce02122b1b97`
-  — `docs(ai): record the Phase 1 commit SHAs in current state and handoff` (2026-10-11 07:54:40 +0000)
-- Local HEAD (full SHA): `6f36c1b1c72f8abf9e290ae1dabcce02122b1b97` — ตรงกับ origin/main
+- GitHub `origin/main` (full SHA): `b8186f8702c0eb35fff457770196cfb3a8bae047`
+  — `docs(ai): harden .ai docs with GitHub source-of-truth rules and verified SHAs` (2026-10-11) — เอกสารชุด sync นี้ถูก commit ต่อเป็น commit ถัดไป (ดู `git log -1`)
+- Local HEAD (full SHA): `b8186f8702c0eb35fff457770196cfb3a8bae047` — ตรงกับ origin/main
 - Divergence: 0 ahead / 0 behind (`git rev-list --left-right --count HEAD...origin/main`)
-- Working tree: มีการแก้ `.ai/*.md` จากงาน "AI Integrity & GitHub Source-of-Truth Hardening" ที่ยังไม่ commit (คำสั่งงานห้าม commit — ผู้ใช้ commit ผ่าน Changes panel) + `bun.lock` (untracked — repo ไม่ track lockfile)
+- Working tree: สะอาด — เหลือเฉพาะ `bun.lock` (untracked — repo ไม่ track lockfile)
 - Current Phase: **Phase 1 — UI/UX Design System (เสร็จ, static checks ผ่าน, push แล้ว)**
-- Current Work: งาน `.ai/` integrity hardening แก้เอกสารเสร็จ — รอผู้ใช้ commit
+- Current Work: งาน `.ai/` integrity hardening — commit `b8186f87…` + push แล้ว; sync เอกสารชุดนี้เป็น commit ถัดไป
 - Completed (สำคัญ):
   - Phase 1 UI foundation ทั้งหมด — commit `ab627da5ba65d677fce71c221af06bd0e82027e7`
   - ระบบเอกสาร `.ai/` + `.gitignore` + README — commits `ede06afc001165a131301df0bc6358bea829c522`, `6f36c1b1c72f8abf9e290ae1dabcce02122b1b97`
-  - กฎ GitHub Source of Truth + Quick Start ที่ตรวจ divergence ก่อนทำงาน (งาน hardening นี้)
+  - กฎ GitHub Source of Truth + Quick Start ที่ตรวจ divergence ก่อนทำงาน — commit `b8186f8702c0eb35fff457770196cfb3a8bae047`
 - Known Issues: ดูรายการเต็มใน `.ai/CURRENT_STATE.md` (สรุป: `reported_houses`/`audits` ไม่อยู่ใน generated types, RLS ยังไม่ยืนยันบน Supabase จริง, มี dead code ที่ยังไม่ลบ)
 - Blocked: runtime/preview ต้องใช้ `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` ที่ยังไม่มีใน workspace นี้ (ห้ามอ่าน/พิมพ์ค่า secret — ผู้ใช้จัดการผ่าน Settings → Environment)
 - Next Recommended Task: ผู้ใช้ commit เอกสารชุดนี้ก่อน แล้วรอคำสั่งงานถัดไป (ห้ามเริ่ม Phase 2 เอง) — รายการงานที่ข้อมูลรองรับอยู่ใน `.ai/CURRENT_STATE.md`

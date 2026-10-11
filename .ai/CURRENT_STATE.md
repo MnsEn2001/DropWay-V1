@@ -9,16 +9,17 @@ Snapshot ตรวจสอบเมื่อ: **2026-10-11** — ทุกค�
 |---|---|---|
 | Remote | `https://github.com/MnsEn2001/DropWay-V1.git` | `git remote -v` (2026-10-11) |
 | Default branch | `main` | `git ls-remote --symref origin HEAD` (2026-10-11) |
-| GitHub `origin/main` (full SHA) | `6f36c1b1c72f8abf9e290ae1dabcce02122b1b97` | `git ls-remote origin refs/heads/main` (2026-10-11) |
-| GitHub commit ล่าสุด | `docs(ai): record the Phase 1 commit SHAs in current state and handoff` — 2026-10-11 07:54:40 +0000 | `git log -1 origin/main` |
-| Local HEAD (full SHA) | `6f36c1b1c72f8abf9e290ae1dabcce02122b1b97` (branch `main`) | `git rev-parse HEAD` (2026-10-11) |
+| GitHub `origin/main` (full SHA) | `b8186f8702c0eb35fff457770196cfb3a8bae047` (task commit — เอกสารชุด sync นี้ถูก commit ต่อเป็น commit ถัดไป ดู `git log -1`) | `git ls-remote origin refs/heads/main` (2026-10-11) |
+| GitHub commit ล่าสุด | `docs(ai): harden .ai docs with GitHub source-of-truth rules and verified SHAs` — 2026-10-11 | `git log -1 origin/main` |
+| Local HEAD (full SHA) | `b8186f8702c0eb35fff457770196cfb3a8bae047` (branch `main`) | `git rev-parse HEAD` (2026-10-11) |
 | Divergence local ↔ GitHub | **0 ahead / 0 behind** | `git rev-list --left-right --count HEAD...origin/main` (2026-10-11) |
-| Working tree | แก้ `.ai/*.md` จากงาน AI integrity hardening (ยังไม่ commit — คำสั่งงานห้าม commit); `bun.lock` untracked | `git status` (2026-10-11) |
+| Working tree | สะอาด — เหลือเฉพาะ `bun.lock` (untracked; repo ไม่ track lockfile) | `git status` (หลัง push 2026-10-11) |
 
 ประวัติ commit สำคัญ: `7b96d91d583cc7372672fe625527dba60d1dcce9` (Merge PR #1)
 → `ab627da5ba65d677fce71c221af06bd0e82027e7` (feat(ui): Phase 1)
 → `ede06afc001165a131301df0bc6358bea829c522` (ระบบ `.ai/` + `.gitignore` + README)
 → `6f36c1b1c72f8abf9e290ae1dabcce02122b1b97` (sync SHA ในเอกสาร)
+→ `b8186f8702c0eb35fff457770196cfb3a8bae047` (hardening เอกสาร `.ai/` + กฎ GitHub Source of Truth)
 
 ## Verification status (แยกประเภท — ห้ามนำมาใช้แทนกัน)
 
@@ -60,15 +61,15 @@ Snapshot ตรวจสอบเมื่อ: **2026-10-11** — ทุกค�
   Delivery Status System (UI-only 10 สถานะ), AppShell (sidebar/topbar/bottom nav),
   ปรับทุกหน้า + loading/empty/error states — commit `ab627da5ba65d677fce71c221af06bd0e82027e7`
 - ระบบเอกสาร `.ai/` + `.gitignore` + README — commits `ede06afc001165a131301df0bc6358bea829c522`, `6f36c1b1c72f8abf9e290ae1dabcce02122b1b97`
-- งาน AI integrity hardening (เอกสารชุดนี้): กฎ GitHub Source of Truth, Quick Start ที่ตรวจ divergence,
-  แยก GitHub/local SHA, แก้ SHA/สถานะที่ไม่ตรง — **ยังไม่ commit** (รอผู้ใช้ commit ผ่าน Changes panel)
+- งาน AI integrity hardening: กฎ GitHub Source of Truth, Quick Start ที่ตรวจ divergence,
+  แยก GitHub/local SHA, แก้ SHA/สถานะที่ไม่ตรง — commit `b8186f8702c0eb35fff457770196cfb3a8bae047` — push ขึ้น `origin/main` แล้ว (2026-10-11)
 - Functional เดิม (ยังทำงาน — มีมาก่อน Phase 1): Auth (Supabase email/password + middleware guard),
   Dashboard stats/activity, คลังบ้าน (CRUD/ค้นหา/กรอง/CSV/pagination), นำทางส่งของ
   (Vincenty + cluster + รายงานปัญหา + งานค้าง)
 
 ## In-progress
 
-- ไม่มีงาน feature ค้าง — เอกสาร hardening ชุดนี้รอผู้ใช้ commit
+- ไม่มีงานค้าง — งาน hardening commit + push แล้ว (เอกสาร sync ชุดนี้ตามด้วย commit ถัดไป)
 
 ## Known issues (มีหลักฐานประกอบ)
 

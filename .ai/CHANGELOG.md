@@ -55,4 +55,12 @@
 - Why: กัน AI ทำงานบน workspace ที่ล้าหลัง GitHub, กัน SHA/สถานะไม่ตรง และกันเอกสารทำให้เข้าใจผิด
 - Verification: doc integrity (paths/secrets/.gitignore/divergence) ตรวจแล้วผ่าน · `bun run lint` PASS (exit 0) · `bun run build` PASS (exit 0)
   หลักฐาน: `.ai/reports/2026-10-11-ai-integrity-audit.md`
-- Commit: pending — งานนี้ห้าม commit/push ตามคำสั่ง (ผู้ใช้ commit ผ่าน Changes panel)
+- Commit: `b8186f8702c0eb35fff457770196cfb3a8bae047` — push ขึ้น `origin/main` แล้ว (`6f36c1b1c72f8abf9e290ae1dabcce02122b1b97..b8186f8702c0eb35fff457770196cfb3a8bae047`) ตามคำสั่งผู้ใช้ (2026-10-11)
+
+## 2026-10-11 — Push งาน .ai integrity hardening ขึ้น repository
+
+- Task: git delivery (ผู้ใช้สั่ง push หลังทำงานเสร็จ)
+- Changed: commit `b8186f8702c0eb35fff457770196cfb3a8bae047` (เอกสาร `.ai/` 9 ไฟล์) + ตามด้วย commit sync SHA ในเอกสารชุดนี้
+- Why: เก็บงาน hardening เอกสารขึ้น repository ตามคำสั่งผู้ใช้
+- Verification: `git push origin main` exit 0 (`6f36c1b1c72f8abf9e290ae1dabcce02122b1b97..b8186f8702c0eb35fff457770196cfb3a8bae047`) · `git ls-remote` ยืนยัน remote ตรงกับ local HEAD
+- Commit: `b8186f8702c0eb35fff457770196cfb3a8bae047` (+ sync commit ถัดจากนั้น — ดู `git log`)
