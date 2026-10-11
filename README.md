@@ -1,36 +1,56 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# DropWay
+
+ระบบจัดเส้นทางส่งของสำหรับไรเดอร์และธุรกิจขนส่ง พื้นที่ให้บริการหลัก **อ.วังเจ้า จ.ตาก**
+
+อัพโหลดรายชื่อบ้าน → จัดลำดับเส้นทางอัตโนมัติ → นำทางด้วย Google Maps
+
+## Tech Stack
+
+Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS 4 · Supabase (Auth + Postgres + RPC) · lucide-react · papaparse
 
 ## Getting Started
 
-First, run the development server:
+1. ตั้งค่า environment variables (ผ่าน Settings → Environment หรือ `.env.local` ของคุณ):
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+   | Key | จำเป็น |
+   |---|---|
+   | `NEXT_PUBLIC_SUPABASE_URL` | ใช่ |
+   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ใช่ |
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. ติดตั้ง dependencies และรัน dev server:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+   ```bash
+   bun install
+   bun run dev
+   ```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+3. เปิด http://localhost:3000
 
-## Learn More
+## Scripts
 
-To learn more about Next.js, take a look at the following resources:
+| คำสั่ง | ทำอะไร |
+|---|---|
+| `bun run dev` | เปิด dev server |
+| `bun run build` | production build (รวม typecheck) |
+| `bun run start` | รัน production server |
+| `bun run lint` | ตรวจ ESLint (flat config) |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Routes
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+| Route | หน้าที่ |
+|---|---|
+| `/` | landing page |
+| `/login`, `/signup` | เข้าสู่ระบบ / สมัครสมาชิก (Supabase Auth) |
+| `/dashboard` | ภาพรวมสถิติและกิจกรรมล่าสุด |
+| `/dashboard/houses` | คลังบ้าน: เพิ่ม/แก้/ลบ, ค้นหา/กรอง, นำเข้า-ส่งออก CSV |
+| `/dashboard/routes/navigate` | นำทางส่งของ: คิววันนี้ / รายงานแล้ว |
 
-## Deploy on Vercel
+## Documentation for AI Agents
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+เอกสารสำหรับ AI Agent และ workflow ทั้งหมดอยู่ในโฟลเดอร์ [`.ai/`](./.ai/):
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- เริ่มจาก [`.ai/AI_HANDOFF.md`](./.ai/AI_HANDOFF.md)
+- กฎที่ต้องรู้: [`.ai/AI_RULES.md`](./.ai/AI_RULES.md)
+- สถานะปัจจุบัน: [`.ai/CURRENT_STATE.md`](./.ai/CURRENT_STATE.md)
+
+ห้าม commit secrets ลง repository (รวมถึงใน `.ai/`)

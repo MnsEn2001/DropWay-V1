@@ -1,0 +1,26 @@
+# dependencies
+/node_modules
+
+# next.js
+/.next/
+/out/
+/build
+
+# misc
+.DS_Store
+*.tsbuildinfo
+
+# debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files — ห้าม commit secrets
+.env*
+!.env.example
+
+# vercel
+.vercel
+
+# หมายเหตุ: ห้าม ignore ".ai/" — เอกสาร AI Agent ต้องถูก commit เข้า repository
