@@ -1,10 +1,40 @@
 // src/app/layout.tsx
 import "./globals.css";
-import { Navbar } from "@/components/layout/Navbar";
+import type { Metadata, Viewport } from "next";
+import { Inter, Noto_Sans_Thai } from "next/font/google";
+import { AppShell } from "@/components/layout/AppShell";
+import { ToastProvider } from "@/components/ui/toast";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
+});
+
+const notoSansThai = Noto_Sans_Thai({
+  subsets: ["thai"],
+  variable: "--font-noto-sans-thai",
+  display: "swap",
+});
+
+export const metadata: Metadata = {
+  title: {
+    default: "DropWay — ระบบจัดเส้นทางส่งของ",
+    template: "%s | DropWay",
+  },
+  description:
+    "ระบบจัดเส้นทางส่งของอัจฉริยะสำหรับไรเดอร์และธุรกิจขนส่ง อัพโหลดรายชื่อบ้าน จัดลำดับเส้นทาง และนำทางด้วย Google Maps",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#4f46e5",
+};
 
 export default async function RootLayout({
   children,
@@ -13,23 +43,17 @@ export default async function RootLayout({
 }) {
   const supabase = await createSupabaseServerClient();
 
-  // สำคัญที่สุด! ใช้ getUser() แทน getSession()
+  // ใช้ getUser() เพื่อยืนยันผู้ใช้จากฝั่ง server
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   return (
-    <html lang="th">
-      <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap"
-          rel="stylesheet"
-        />
-      </head>
-      <body className="bg-gray-50 font-sans antialiased min-h-screen">
-        <Navbar initialUser={user} />
-        <main className="pt-16">{children}</main>
+    <html lang="th" className={`${inter.variable} ${notoSansThai.variable}`}>
+      <body className="min-h-screen">
+        <ToastProvider>
+          <AppShell initialUser={user}>{children}</AppShell>
+        </ToastProvider>
       </body>
     </html>
   );

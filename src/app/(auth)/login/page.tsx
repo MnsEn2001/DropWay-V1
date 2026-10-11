@@ -3,13 +3,20 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase/client";
 import Link from "next/link";
+import { Eye, EyeOff } from "lucide-react";
+import { supabase } from "@/lib/supabase/client";
+import { translateAuthError } from "@/lib/utils";
+import { AuthShell } from "@/components/auth/AuthShell";
+import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -24,68 +31,80 @@ export default function LoginPage() {
     });
 
     if (error) {
-      setError(error.message);
+      setError(translateAuthError(error.message));
       setLoading(false);
     } else {
-      // วิธีเดียวที่เสถียรที่สุดในปี 2025 (ทำงาน 100% บน Vercel)
+      // วิธีเดียวที่เสถียรที่สุด (ทำงาน 100% บน Vercel)
       router.replace("/dashboard");
       router.refresh(); // บังคับให้ layout โหลด session ใหม่ทันที
     }
   };
 
   return (
-    <div className="min-h-screen bg-linear-to-r from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-800">Dropway</h1>
-          <p className="text-gray-600 mt-2">เข้าสู่ระบบเพื่อเริ่มส่งของ</p>
-        </div>
-
-        <form onSubmit={handleLogin} className="space-y-6">
-          <input
-            type="email"
-            placeholder="อีเมล"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            required
-            disabled={loading}
-          />
-          <input
-            type="password"
-            placeholder="รหัสผ่าน"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            required
-            disabled={loading}
-          />
-
-          {error && (
-            <p className="text-red-500 text-center text-sm bg-red-50 py-2 rounded">
-              {error}
-            </p>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-ful lw-full bg-blue-600 text-white py-4 rounded-lg font-bold hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"}
-          </button>
-        </form>
-
-        <p className="text-center mt-6 text-gray-600">
+    <AuthShell
+      title="เข้าสู่ระบบ DropWay"
+      subtitle="ยินดีต้อนรับกลับมา จัดเส้นทางส่งของให้เสร็จไวขึ้น"
+      footer={
+        <>
           ยังไม่มีบัญชี?{" "}
           <Link
             href="/signup"
-            className="text-blue-600 font-semibold hover:underline"
+            className="font-semibold text-primary-600 hover:text-primary-700 hover:underline"
           >
-            สมัครสมาชิก
+            สมัครสมาชิกฟรี
           </Link>
-        </p>
-      </div>
-    </div>
+        </>
+      }
+    >
+      <form onSubmit={handleLogin} className="space-y-5">
+        <Input
+          type="email"
+          label="อีเมล"
+          placeholder="you@example.com"
+          autoComplete="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+          disabled={loading}
+        />
+
+        <div className="relative">
+          <Input
+            type={showPassword ? "text" : "password"}
+            label="รหัสผ่าน"
+            placeholder="รหัสผ่านของคุณ"
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            disabled={loading}
+            className="pr-11"
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword((prev) => !prev)}
+            aria-label={showPassword ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}
+            className="absolute bottom-1 right-1 flex size-9 items-center justify-center rounded-lg text-slate-400 transition-colors hover:text-slate-600"
+          >
+            {showPassword ? (
+              <EyeOff className="size-5" aria-hidden="true" />
+            ) : (
+              <Eye className="size-5" aria-hidden="true" />
+            )}
+          </button>
+        </div>
+
+        {error && <Alert variant="danger">{error}</Alert>}
+
+        <Button
+          type="submit"
+          size="lg"
+          className="w-full"
+          loading={loading}
+        >
+          {loading ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"}
+        </Button>
+      </form>
+    </AuthShell>
   );
 }

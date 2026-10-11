@@ -2,20 +2,17 @@ import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
 
-export default defineConfig({
+export default defineConfig([
   // รวม config ของ Next.js
-  extends: [...nextVitals, ...nextTs],
+  ...nextVitals,
+  ...nextTs,
 
-  rules: {
-    "@typescript-eslint/no-explicit-any": "error",
+  // Override ignores (ต้องวางเป็น config element ไม่ใช่ spread)
+  globalIgnores([".next/**", "out/**", "build/**", "next-env.d.ts"]),
+
+  {
+    rules: {
+      "@typescript-eslint/no-explicit-any": "error",
+    },
   },
-
-  // Override ignores
-  ignorePatterns: [
-    ...globalIgnores,
-    ".next/**",
-    "out/**",
-    "build/**",
-    "next-env.d.ts",
-  ],
-});
+]);

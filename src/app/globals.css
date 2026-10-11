@@ -1,26 +1,148 @@
 @import "tailwindcss";
 
-:root {
-    --background: #ffffff;
-    --foreground: #171717;
-}
+/* ============================================================
+   DropWay Design System — Phase 1 (UI/UX Foundation)
+   Theme: Modern Delivery / Logistics, light theme only.
+   ============================================================ */
 
 @theme inline {
-    --color-background: var(--background);
-    --color-foreground: var(--foreground);
-    --font-sans: var(--font-geist-sans);
-    --font-mono: var(--font-geist-mono);
+    /* Typography */
+    --font-sans: var(--font-inter), var(--font-noto-sans-thai), ui-sans-serif,
+        system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+    /* Brand — Deep Blue / Indigo */
+    --color-primary-50: #eef2ff;
+    --color-primary-100: #e0e7ff;
+    --color-primary-200: #c7d2fe;
+    --color-primary-300: #a5b4fc;
+    --color-primary-400: #818cf8;
+    --color-primary-500: #6366f1;
+    --color-primary-600: #4f46e5;
+    --color-primary-700: #4338ca;
+    --color-primary-800: #3730a3;
+    --color-primary-900: #312e81;
+    --color-primary-950: #1e1b4b;
+
+    /* Surfaces */
+    --color-background: #f8fafc;
+    --color-surface: #ffffff;
+
+    /* Semantic */
+    --color-success-50: #f0fdf4;
+    --color-success-100: #dcfce7;
+    --color-success-500: #22c55e;
+    --color-success-600: #16a34a;
+    --color-success-700: #15803d;
+
+    --color-warning-50: #fffbeb;
+    --color-warning-100: #fef3c7;
+    --color-warning-500: #f59e0b;
+    --color-warning-600: #d97706;
+    --color-warning-700: #b45309;
+
+    --color-danger-50: #fef2f2;
+    --color-danger-100: #fee2e2;
+    --color-danger-500: #ef4444;
+    --color-danger-600: #dc2626;
+    --color-danger-700: #b91c1c;
+
+    --color-info-50: #eff6ff;
+    --color-info-100: #dbeafe;
+    --color-info-500: #3b82f6;
+    --color-info-600: #2563eb;
+    --color-info-700: #1d4ed8;
+
+    /* Elevation — subtle by default */
+    --shadow-card: 0 1px 2px 0 rgb(15 23 42 / 0.04),
+        0 1px 3px 0 rgb(15 23 42 / 0.06);
+    --shadow-card-hover: 0 6px 16px -6px rgb(15 23 42 / 0.12),
+        0 2px 6px -2px rgb(15 23 42 / 0.08);
+    --shadow-elevated: 0 16px 40px -12px rgb(15 23 42 / 0.24);
 }
 
-@media (prefers-color-scheme: dark) {
-    :root {
-        --background: #0a0a0a;
-        --foreground: #ededed;
+@layer base {
+    html {
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+        @apply bg-background font-sans text-slate-900 antialiased;
+    }
+
+    /* Keyboard focus baseline (a11y) */
+    :focus-visible {
+        outline: 2px solid var(--color-primary-500);
+        outline-offset: 2px;
     }
 }
 
-body {
-    background: var(--background);
-    color: var(--foreground);
-    font-family: Arial, Helvetica, sans-serif;
+/* Mount animations (no external animation library) */
+@keyframes dropway-fade-in {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes dropway-scale-in {
+    from {
+        opacity: 0;
+        transform: translateY(8px) scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+@keyframes dropway-slide-in-right {
+    from {
+        transform: translateX(100%);
+    }
+    to {
+        transform: none;
+    }
+}
+
+@keyframes dropway-slide-in-left {
+    from {
+        transform: translateX(-100%);
+    }
+    to {
+        transform: none;
+    }
+}
+
+@keyframes dropway-slide-up {
+    from {
+        opacity: 0;
+        transform: translateY(16px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+.animate-fade-in {
+    animation: dropway-fade-in 150ms ease-out both;
+}
+
+.animate-scale-in {
+    animation: dropway-scale-in 180ms ease-out both;
+}
+
+.animate-slide-in-right {
+    animation: dropway-slide-in-right 200ms ease-out both;
+}
+
+.animate-slide-in-left {
+    animation: dropway-slide-in-left 200ms ease-out both;
+}
+
+.animate-slide-up {
+    animation: dropway-slide-up 200ms ease-out both;
 }

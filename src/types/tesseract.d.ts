@@ -1,4 +1,9 @@
 declare module "tesseract.js" {
-  const Tesseract: any;
+  const Tesseract: {
+    recognize: (
+      image: string | Blob | HTMLCanvasElement,
+      lang?: string,
+    ) => Promise<unknown>;
+  };
   export default Tesseract;
 }
