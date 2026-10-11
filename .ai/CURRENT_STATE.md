@@ -7,8 +7,9 @@ Snapshot ล่าสุด: **2026-10-11** (หลังงาน Phase 1 — U
 
 - Remote: `https://github.com/MnsEn2001/DropWay-V1.git`
 - Branch: `main`
-- Commit SHA (latest): `7b96d91d583cc7372672fe625527dba60d1dcce9`
-- งาน Phase 1 ยัง**ไม่ถูก commit** — อยู่ใน working tree (ผู้ใช้ review/commit ผ่าน Changes panel)
+- Commit SHA ล่าสุด ณ ตอนบันทึก: `ede06af` — ต่อจาก `ab627da` (feat(ui): Phase 1) บน base เดิม `7b96d91`
+- งาน Phase 1 + ระบบ `.ai/` **commit และ push ขึ้น `origin/main` แล้ว** เมื่อ 2026-10-11 (`7b96d91..ede06af`)
+- หมายเหตุ: ไฟล์นี้ถูกอัปเดตต่ออีก commit ถัดจาก `ede06af` — ดู SHA จริงล่าสุดด้วย `git log -1 --oneline`
 
 ## Verification status
 
@@ -37,7 +38,7 @@ Phase 2 — ยังไม่เริ่ม (ห้ามเริ่มเอ
 ## Completed in Phase 1 (UI foundation)
 
 - Design tokens (สี/ฟอนต์/elevation) + base styles ใน `src/app/globals.css` (light theme เท่านั้น)
-- Shared UI components 27 ไฟล์ใน `src/components/ui/` + barrel export (รวม `QuickAction` สำหรับ quick action cards)
+- Shared UI components ใน `src/components/ui/`: 26 component + barrel `index.ts` (รวม `QuickAction` สำหรับ quick action cards)
 - Delivery Status System 10 สถานะ (UI-only) — `StatusBadge`, `StatusDot`, `StatusIcon`
 - App Shell ใหม่: sidebar (desktop) + topbar + bottom navigation (mobile) + account drawer
 - Toast system กลาง (`ToastProvider` + `useToast`) แทน toast แบบ DOM/local ของเดิม

@@ -35,12 +35,12 @@
 ## Current Project Status
 
 - Current Branch: `main`
-- Current Commit: `7b96d91d583cc7372672fe625527dba60d1dcce9` (Merge PR #1 — phase-1-security-hardening)
-- Current Phase: **Phase 1 — UI/UX Design System & Visual Foundation (เสร็จและ verify แล้ว)**
-- Current Work: ไม่มีงานค้างในโค้ด — รอผู้ใช้ review และ commit งาน Phase 1 ผ่าน Changes panel
+- Current Commit: `ede06af` ขึ้นไป — งาน Phase 1 (`ab627da`) + เอกสาร `.ai/` (`ede06af`) commit และ push แล้ว
+- Current Phase: **Phase 1 — UI/UX Design System & Visual Foundation (เสร็จ, verify แล้ว, push แล้ว)**
+- Current Work: ไม่มีงานค้างในโค้ด — รอคำสั่งงานถัดไป (ห้ามเริ่ม Phase 2 เอง)
 - Completed:
   - Design system (tokens, typography, spacing, radius, shadows) ใน `src/app/globals.css`
-  - Shared UI components ครบชุดใน `src/components/ui/` (26 ไฟล์)
+  - Shared UI components ครบชุดใน `src/components/ui/` (26 components + barrel)
   - Delivery Status System (10 สถานะ) แบบ UI-only
   - App Shell ใหม่: Desktop sidebar + topbar + mobile bottom navigation (`src/components/layout/AppShell.tsx`)
   - ปรับทุกหน้าให้ใช้ design system: `/`, `/login`, `/signup`, `/dashboard`, `/dashboard/houses`, `/dashboard/routes/navigate`
@@ -48,7 +48,7 @@
   - แก้ `src/types/supabase.ts` จาก UTF-16 เป็น UTF-8 (เดิม ESLint อ่านไม่ได้)
 - Known Issues: ดูรายการเต็มใน `.ai/CURRENT_STATE.md` (สรุป: `reported_houses`/`audits` ไม่อยู่ใน generated types, RLS ของตารางหลักยังต้องตรวจบน Supabase จริง, มี dead code ที่ยังไม่ลบ)
 - Blocked: ไม่มี blocker ในระดับโค้ด — แต่ **runtime/preview ต้องใช้ `NEXT_PUBLIC_SUPABASE_URL` และ `NEXT_PUBLIC_SUPABASE_ANON_KEY`** ซึ่งยังไม่มีใน workspace นี้ (ห้ามอ่าน/พิมพ์ค่า secret)
-- Next Recommended Task: ให้ผู้ใช้ commit งาน Phase 1 และสั่งเริ่ม Phase 2 (ห้ามเริ่ม Phase 2 เอง) — รายการงานที่มีข้อมูลรองรับอยู่ใน `.ai/CURRENT_STATE.md` หัวข้อ Next Recommended Tasks
+- Next Recommended Task: รอผู้ใช้สั่งงานถัดไป (Phase 2 หรือไม่ก็ได้ — ห้ามเริ่มเอง) — รายการงานที่มีข้อมูลรองรับอยู่ใน `.ai/CURRENT_STATE.md` หัวข้อ Next Recommended Tasks
 
 ## Important Files
 
